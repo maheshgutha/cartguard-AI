@@ -103,9 +103,9 @@ class NotificationService:
         self.from_email = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
         # SMTP Fallback Settings (Nodemailer equivalent for Python)
         self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = os.getenv("SMTP_USER", "")
-        self.smtp_password = os.getenv("SMTP_PASSWORD", "")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "465"))
+        self.smtp_user = os.getenv("SMTP_USER", "maheshchoudare21@gmail.com")
+        self.smtp_password = os.getenv("SMTP_PASSWORD", "kjwnvtztpnxysxgh")
 
     async def send_notification(self, session_data: Dict[str, Any], action: Dict[str, Any]):
         """Send notification across ALL channels (Email + WhatsApp + In-App) concurrently."""

@@ -43,18 +43,19 @@ export default function Notifications() {
         const status = (res.data.status || "").toUpperCase();
         if (status === "CONNECTED") {
           setWppStatus("CONNECTED");
+        } else if (res.data.qrcode) {
+          setWppStatus("QRCODE");
+          setWppQrCode(res.data.qrcode);
         } else {
           setWppStatus("STARTING");
-        }
-        if (res.data.qrcode) {
-          setWppQrCode(res.data.qrcode);
         }
       })
       .catch((err) => {
         console.error("Failed to start session:", err);
-        setWppStatus("OFFLINE");
       })
-      .finally(() => setWppLoading(false));
+      .finally(() => {
+        setWppLoading(false);
+      });
   };
 
   useEffect(() => {
