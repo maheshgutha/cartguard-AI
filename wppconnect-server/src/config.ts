@@ -56,7 +56,10 @@ export default {
   createOptions: {
     headless: true,
     puppeteerOptions: {
-      executablePath: env.PUPPETEER_EXECUTABLE_PATH || env.CHROME_BIN || (process.platform === 'linux' ? '/usr/bin/chromium-browser' : undefined),
+      executablePath:
+        env.PUPPETEER_EXECUTABLE_PATH ||
+        env.CHROME_BIN ||
+        '/usr/bin/google-chrome-stable',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
