@@ -1,9 +1,18 @@
 import axios from "axios";
 
-// In production (Vercel), VITE_API_URL points to the deployed Node Express backend (e.g. https://cartguard-server.onrender.com/api)
-// In local development, falls back to "/api" via Vite proxy (http://localhost:5000)
+// Automatically sanitize baseURL so if user enters "https://cartguard-ai-1.onrender.com" or "https://cartguard-ai-1.onrender.com/api"
+// it always correctly resolves to the "/api" endpoints.
+const getBaseUrl = () => {
+  let url = (import.meta.env.VITE_API_URL || "/api").trim();
+  url = url.replace(/\/+$/, ""); // remove trailing slashes
+  if (url && url !== "/api" && !url.endsWith("/api")) {
+    url = `${url}/api`;
+  }
+  return url || "/api";
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api"
+  baseURL: getBaseUrl()
 });
 
 api.interceptors.request.use((config) => {

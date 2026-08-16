@@ -25,11 +25,19 @@ app.use(morgan("dev"));
 
 app.get("/api/health", (req, res) => res.json({ status: "ok", service: "cartguard-mern-server" }));
 
+// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
+
+// Direct Aliases (for backward compatibility if requested without /api)
+app.use("/auth", authRoutes);
+app.use("/products", productRoutes);
+app.use("/cart", cartRoutes);
+app.use("/orders", orderRoutes);
+app.use("/admin", adminRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 app.use((err, req, res, next) => {
