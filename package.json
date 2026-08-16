@@ -1,0 +1,12 @@
+{
+  "name": "cartguard-ai",
+  "version": "2.0.0",
+  "description": "CartGuard AI - Real-time Cart Recovery Engine",
+  "private": true,
+  "scripts": {
+    "build:server": "cd server && npm install",
+    "build:client": "cd client && npm install && npm run build",
+    "start:server": "cd server && node src/server.js",
+    "start:client": "cd client && npm run preview"
+  }
+}

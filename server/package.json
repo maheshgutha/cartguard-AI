@@ -1,0 +1,27 @@
+{
+  "name": "cartguard-server",
+  "version": "1.0.0",
+  "description": "CartGuard AI - MERN backend (auth, ecommerce, admin bridge to ML service)",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Backend server ready'",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/seed/seedProducts.js",
+    "seed:users": "node src/seed/seedUsers.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.0",
+    "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
