@@ -25,7 +25,7 @@
 | :--- | :---: | :--- | :---: |
 | ⚡ **Python FastAPI ML Core** | **Render** | [`https://cartguard-ai.onrender.com/health`](https://cartguard-ai.onrender.com/health) | `🟢 Live (200 OK)` |
 | 🛒 **Node.js Express MERN API** | **Render** | [`https://cartguard-ai-1.onrender.com/api/health`](https://cartguard-ai-1.onrender.com/api/health) | `🟢 Live (200 OK)` |
-| 💻 **React Storefront & Admin** | **Vercel** | `Pending Vercel Deploy` | `🚀 Ready to Deploy` |
+| 💻 **React Storefront & Admin** | **Vercel** | [`https://cartguard-ai.vercel.app`](https://cartguard-ai.vercel.app) | `🟢 Live (200 OK)` |
 
 ---
 
