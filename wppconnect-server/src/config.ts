@@ -54,10 +54,25 @@ export default {
     logger: ['console', 'file'],
   },
   createOptions: {
+    headless: true,
+    puppeteerOptions: {
+      executablePath: env.PUPPETEER_EXECUTABLE_PATH || env.CHROME_BIN || (process.platform === 'linux' ? '/usr/bin/chromium-browser' : undefined),
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-extensions',
+        '--disable-software-rasterizer'
+      ],
+    },
     browserArgs: [
       '--disable-web-security',
       '--no-sandbox',
-      '--disable-web-security',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
       '--aggressive-cache-discard',
       '--disable-cache',
       '--disable-application-cache',
