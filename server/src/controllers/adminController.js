@@ -146,7 +146,7 @@ export const getWhatsAppStatus = async (req, res) => {
 
     // 1. Check actual authentication/online state
     try {
-      const connResp = await fetch(`${baseUrl}/api/${wppSession}/check-connection-session`, { headers });
+      const connResp = await fetch(`${baseUrl}/api/${wppSession}/check-connection-session`, { headers, signal: AbortSignal.timeout(3500) });
       if (connResp.status === 200) {
         const connData = await connResp.json();
         if (connData.status === true) {
@@ -158,7 +158,7 @@ export const getWhatsAppStatus = async (req, res) => {
     }
 
     // 2. Fetch session status to see if QR code is generated
-    const statusResp = await fetch(`${baseUrl}/api/${wppSession}/status-session`, { headers });
+    const statusResp = await fetch(`${baseUrl}/api/${wppSession}/status-session`, { headers, signal: AbortSignal.timeout(3500) });
     if (statusResp.status === 200) {
       const statusData = await statusResp.json();
       const statusStr = (statusData.status || "").toUpperCase();
@@ -204,7 +204,8 @@ export const startWhatsAppSession = async (req, res) => {
     const resp = await fetch(`${baseUrl}/api/${wppSession}/start-session`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ waitQrCode: true })
+      body: JSON.stringify({ waitQrCode: true }),
+      signal: AbortSignal.timeout(15000)
     });
     
     const contentType = resp.headers.get("content-type") || "";
@@ -219,7 +220,7 @@ export const startWhatsAppSession = async (req, res) => {
       res.json({ status: "STARTING", message: text });
     }
   } catch (err) {
-    res.status(502).json({ message: "WPPConnect server offline", error: err.message });
+    res.json({ status: "OFFLINE", message: "WPPConnect server offline", error: err.message });
   }
 };
 
@@ -235,7 +236,7 @@ export const getWhatsAppQRCode = async (req, res) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const resp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers });
+    const resp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(5000) });
     
     const contentType = resp.headers.get("content-type") || "";
     if (resp.status === 200 && contentType.includes("image")) {

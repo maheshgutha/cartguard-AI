@@ -259,7 +259,7 @@ export default function Notifications() {
                 Open WhatsApp on your mobile device ➡️ Linked Devices ➡️ Link a Device, and scan below:
               </div>
               <img 
-                src={wppQrCode || `/api/admin/whatsapp-qrcode?t=${qrTimestamp}`} 
+                src={wppQrCode ? (wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`) : `/api/admin/whatsapp-qrcode?t=${qrTimestamp}`} 
                 alt="WhatsApp Link QR Code" 
                 style={{ background: "#fff", padding: 12, borderRadius: 8, width: 200, height: 200, border: "1px solid var(--border)", display: "block" }} 
               />
