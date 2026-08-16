@@ -26,7 +26,10 @@ services:
       - key: SMTP_PASSWORD
         sync: false
       - key: WPPCONNECT_API_URL
-        value: "http://127.0.0.1:21465"
+        fromService:
+          type: web
+          name: cartguard-wppconnect
+          property: host
       - key: WPPCONNECT_SESSION
         value: cartguard
 
@@ -51,5 +54,24 @@ services:
           type: web
           name: cartguard-ml-backend
           property: host
+      - key: WPPCONNECT_API_URL
+        fromService:
+          type: web
+          name: cartguard-wppconnect
+          property: host
       - key: CLIENT_URL
         value: "*"
+
+  # ── 3. WPPConnect WhatsApp Puppeteer Daemon ──────────────────────────────
+  - type: web
+    name: cartguard-wppconnect
+    env: docker
+    region: oregon
+    plan: free
+    rootDir: wppconnect-server
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: SECRET_KEY
+        value: THISISMYSECURETOKEN
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: "true"
