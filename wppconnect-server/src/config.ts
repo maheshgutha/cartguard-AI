@@ -55,6 +55,8 @@ export default {
   },
   createOptions: {
     headless: true,
+    autoClose: false,   // Never auto-close — keep session alive for QR scanning
+    logQR: true,        // Log QR to console for debugging
     puppeteerOptions: {
       executablePath:
         env.PUPPETEER_EXECUTABLE_PATH ||
