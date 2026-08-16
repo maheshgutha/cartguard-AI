@@ -19,6 +19,16 @@
 
 ---
 
+## 🌐 Live Deployments
+
+| Component | Cloud Host | Live Endpoint | Status |
+| :--- | :---: | :--- | :---: |
+| ⚡ **Python FastAPI ML Core** | **Render** | [`https://cartguard-ai.onrender.com/health`](https://cartguard-ai.onrender.com/health) | `🟢 Live (200 OK)` |
+| 🛒 **Node.js Express MERN API** | **Render** | [`https://cartguard-ai-1.onrender.com/api/health`](https://cartguard-ai-1.onrender.com/api/health) | `🟢 Live (200 OK)` |
+| 💻 **React Storefront & Admin** | **Vercel** | `Pending Vercel Deploy` | `🚀 Ready to Deploy` |
+
+---
+
 ## 🎯 The Breakpoint (Problem Identification)
 
 ### 1. The Existing System
