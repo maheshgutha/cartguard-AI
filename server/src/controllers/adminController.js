@@ -184,9 +184,8 @@ export const getWhatsAppStatus = async (req, res) => {
       });
     }
 
-    res.json({ status: "DISCONNECTED", message: "Session not started yet" });
   } catch (err) {
-    res.status(502).json({ message: "WPPConnect server offline", error: err.message });
+    res.json({ status: "OFFLINE", message: "WPPConnect server offline", error: err.message });
   }
 };
 
