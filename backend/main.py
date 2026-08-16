@@ -199,7 +199,7 @@ class SessionData(BaseModel):
     is_dnd_registered: bool = False
     sms_opt_in: bool = True
     email_opt_in: bool = True
-    whatsapp_opt_in: bool = False
+    whatsapp_opt_in: bool = True   # Default True — blocked only if user explicitly opts out
     
     # Contact
     user_email: Optional[str] = None
@@ -367,30 +367,20 @@ async def score_session_v1(session: SessionData, background_tasks: BackgroundTas
         
         result = await orchestrator.process_session(session_dict)
 
-        # Cooldown guardrail: 10 minutes (600 seconds) for identical user action
+        # MongoDB-backed 10-minute cooldown check (survives server restarts)
         action = result.get("action", {})
         action_type = action.get("action_type", "DO_NOTHING")
         is_cooldown_active = False
 
         if action_type not in ["DO_NOTHING", None]:
             user_id = session_dict.get("user_id") or session_dict.get("session_id", "unknown")
-            cache_key = (user_id, action_type)
-            now = time.time()
-            cooldown_period = 10 * 60  # 10 minutes
-
-            if cache_key in notification_service.last_sent_cache:
-                last_sent = notification_service.last_sent_cache[cache_key]
-                if now - last_sent < cooldown_period:
-                    is_cooldown_active = True
-                    remaining = int(cooldown_period - (now - last_sent))
-                    print(f"[COOLDOWN DECREE] Cooldown active for {user_id} and action {action_type}. {remaining}s left.")
+            is_cooldown_active = notification_service._is_in_cooldown(user_id, action_type)
+            if is_cooldown_active:
+                print(f"[SCORE ENDPOINT] Cooldown active for user={user_id} action={action_type}. Skipping notification.")
 
         result["cooldown_active"] = is_cooldown_active
 
-        # Audit log in background
-        background_tasks.add_task(audit_service.log_decision, result, session_dict)
-        
-        # Notification if action recommended and not in cooldown
+        # Send notifications BEFORE audit log so dispatched channels are recorded
         has_contact = bool(
             session_dict.get("user_email")
             or session_dict.get("user_phone")
@@ -401,14 +391,28 @@ async def score_session_v1(session: SessionData, background_tasks: BackgroundTas
             if has_contact:
                 notif_res = await notification_service.send_notification(session_dict, action)
                 result["notification_result"] = notif_res
+                # Store which channels were actually dispatched for the audit log
+                result["dispatched_channels"] = notif_res.get("channels", [])
+            else:
+                result["notification_result"] = {"status": "skipped", "reason": "no_contact_info"}
+                result["dispatched_channels"] = []
         elif is_cooldown_active:
             result["notification_result"] = {"status": "skipped", "reason": "cooldown_active"}
+            result["dispatched_channels"] = []
+        else:
+            result["dispatched_channels"] = []
+
+        # Audit log in background (only when real action/diagnosis occurs, not on cooldown-blocked heartbeats)
+        if not is_cooldown_active:
+            background_tasks.add_task(audit_service.log_decision, result, session_dict)
         
         latency = (time.time() - start) * 1000
         result["api_latency_ms"] = round(latency, 2)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @app.post("/api/v1/score/batch", tags=["Scoring"])
@@ -468,9 +472,9 @@ async def get_audit_log_endpoint(session_id: str):
 
 
 @app.get("/api/v1/audit", tags=["Audit"])
-async def get_audit_logs_v1(limit: int = 50, session_id: Optional[str] = None, user_id: Optional[str] = None):
+async def get_audit_logs_v1(limit: int = 50, session_id: Optional[str] = None, user_id: Optional[str] = None, exclude_cooldown: bool = False):
     """Retrieve audit log entries."""
-    logs = audit_service.get_logs(limit=limit, session_id=session_id, user_id=user_id)
+    logs = audit_service.get_logs(limit=limit, session_id=session_id, user_id=user_id, exclude_cooldown=exclude_cooldown)
     return {"logs": logs, "count": len(logs)}
 
 
@@ -702,4 +706,4 @@ DEMO_SCENARIOS = [
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

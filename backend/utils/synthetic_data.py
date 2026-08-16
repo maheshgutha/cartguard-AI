@@ -32,8 +32,8 @@ def generate_synthetic_sessions(n_samples: int = 5000, seed: int = 42) -> List[D
     sessions = []
 
     types = ["payment_failure", "comparison_shopping", "friction",
-             "low_intent", "urgent_buyer", "converted"]
-    weights = [0.15, 0.20, 0.15, 0.10, 0.20, 0.20]
+             "low_intent", "urgent_buyer", "converted", "price_sensitivity"]
+    weights = [0.15, 0.15, 0.15, 0.10, 0.15, 0.15, 0.15]
 
     for i in range(n_samples):
         session_type = np.random.choice(types, p=weights)
@@ -203,6 +203,32 @@ def _generate_session_by_type(session_type: str, idx: int) -> Dict[str, Any]:
             "back_navigations": 0,
             "form_field_errors": 0,
             "abandoned": 0,  # CONVERTED
+        }
+
+    elif session_type == "price_sensitivity":
+        cart_value = np.random.uniform(500, 3000)
+        return {
+            **base,
+            "session_duration": np.random.uniform(200, 600),
+            "product_views": np.random.randint(5, 15),
+            "cart_adds": np.random.randint(1, 3),
+            "cart_removes": np.random.randint(1, 3),
+            "cart_changes": np.random.randint(3, 7),
+            "cart_value": cart_value,
+            "original_cart_value": cart_value * np.random.uniform(1.2, 1.8),
+            "category_switches": np.random.randint(2, 5),
+            "tab_switches": np.random.randint(1, 4),
+            "page_revisits": np.random.randint(1, 3),
+            "checkout_steps_completed": np.random.randint(1, 4),
+            "total_checkout_steps": 5,
+            "checkout_time": np.random.uniform(30, 120),
+            "payment_attempts": 0,
+            "payment_failures": 0,
+            "time_on_payment_page": 0,
+            "payment_method_switches": 0,
+            "form_field_errors": 0,
+            "back_navigations": np.random.randint(1, 3),
+            "abandoned": 1,
         }
 
     else:  # converted

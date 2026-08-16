@@ -51,6 +51,9 @@ const analyzeCarts = async () => {
         user_segment: userSegment,
         user_email: cart.user.email,
         user_phone: cart.user.phone || "",
+        email_opt_in: true,
+        whatsapp_opt_in: true,
+        sms_opt_in: true,
         
         cart_items: cart.items.map(item => ({
           name: item.name,

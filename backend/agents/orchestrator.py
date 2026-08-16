@@ -61,47 +61,262 @@ def check_cart_comparison_pattern(session_data: Dict[str, Any]) -> bool:
     return False
 
 
-def generate_comparison_message(session_data: Dict[str, Any]) -> str:
-    """Generate a detailed specifications comparison message for similar cart items."""
+def generate_comparison_data(session_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build a structured comparison payload for two similar cart items.
+    Returns a dict with: item1, item2, spec_rows, recommended, reason, message (plain-text).
+    Always includes computed rows (price, rating, value score, etc.) + DB spec rows.
+    """
     items = session_data.get("cart_items", [])
+    fallback = {
+        "message": "We noticed you are comparing items! Get the best value and claim a special discount.",
+        "comparison_data": None
+    }
     if not items or len(items) < 2:
-        return "We noticed you are comparing items! Get the best value and claim a special discount."
+        return fallback
 
     for i in range(len(items)):
         for j in range(i + 1, len(items)):
             item1 = items[i]
             item2 = items[j]
-            
-            name1 = (item1.get("name") or "").lower().strip()
-            name2 = (item2.get("name") or "").lower().strip()
+
+            name1 = (item1.get("name") or "").strip()
+            name2 = (item2.get("name") or "").strip()
             price1 = float(item1.get("price") or 0)
             price2 = float(item2.get("price") or 0)
-            
-            words1 = name1.split()
-            words2 = name2.split()
+
+            words1 = name1.lower().split()
+            words2 = name2.lower().split()
             min_len = min(len(words1), len(words2))
             if min_len >= 2:
                 common_prefix = words1[:2] == words2[:2]
             else:
-                common_prefix = name1 == name2
-                
-            if common_prefix and price1 != price2:
-                specs1 = item1.get("specifications", {})
-                specs2 = item2.get("specifications", {})
-                
-                msg = f"We noticed you are comparing items! Here is a comparison helper to decide:\n"
-                msg += f"- Price: {item1.get('name')} (₹{price1:.0f}) vs {item2.get('name')} (₹{price2:.0f})\n"
-                
-                all_keys = set(specs1.keys()).union(set(specs2.keys()))
-                for k in sorted(all_keys):
-                    val1 = specs1.get(k, "N/A")
-                    val2 = specs2.get(k, "N/A")
-                    msg += f"- {k}: {val1} vs {val2}\n"
-                    
-                msg += "Complete your purchase now for free shipping and easy 30-day returns!"
-                return msg
+                common_prefix = name1.lower() == name2.lower()
 
-    return "We noticed you are comparing items! Get the best value and claim a special discount."
+            if not (common_prefix and price1 != price2):
+                continue
+
+            specs1 = item1.get("specifications", {}) or {}
+            specs2 = item2.get("specifications", {}) or {}
+            rating1 = item1.get("rating")
+            rating2 = item2.get("rating")
+            tier1 = item1.get("quality_tier", "")
+            tier2 = item2.get("quality_tier", "")
+
+            # ─── Helper: determine winner for a row ──────────────────
+            def row_winner(v1, v2, higher_is_better=True):
+                """Return 'item1', 'item2', or 'tie'."""
+                if v1 == v2:
+                    return "tie"
+                # Numeric comparison
+                try:
+                    n1, n2 = float(str(v1).replace(",", "")), float(str(v2).replace(",", ""))
+                    if n1 == n2:
+                        return "tie"
+                    return ("item1" if n1 > n2 else "item2") if higher_is_better else ("item1" if n1 < n2 else "item2")
+                except ValueError:
+                    pass
+                # Text: longer = more detailed = better
+                return "item1" if len(str(v1)) >= len(str(v2)) else "item2"
+
+            # ─── Computed summary rows (always present) ───────────────
+            price_diff = abs(price1 - price2)
+            price_diff_pct = price_diff / max(price1, price2) * 100 if max(price1, price2) > 0 else 0
+            cheaper_label = ("item1" if price1 < price2 else "item2")
+
+            # Value Score = rating / (price / 1000) — higher is better
+            vs1 = round((rating1 / (price1 / 1000)), 2) if rating1 and price1 > 0 else None
+            vs2 = round((rating2 / (price2 / 1000)), 2) if rating2 and price2 > 0 else None
+
+            computed_rows = []
+
+            # Quality Tier row
+            if tier1 or tier2:
+                tw = "tie" if tier1 == tier2 else "item2"  # Elite > Pro Max alphabetically-wise
+                computed_rows.append({"label": "Quality Tier", "item1": tier1 or "—", "item2": tier2 or "—", "winner": tw, "section": "overview"})
+
+            # Price row (cheaper wins)
+            computed_rows.append({
+                "label": "Price",
+                "item1": f"₹{price1:,.0f}",
+                "item2": f"₹{price2:,.0f}",
+                "winner": cheaper_label,
+                "section": "overview"
+            })
+
+            # Price difference row
+            computed_rows.append({
+                "label": "Price Difference",
+                "item1": f"₹{price_diff:,.0f} cheaper" if cheaper_label == "item1" else "—",
+                "item2": f"₹{price_diff:,.0f} cheaper" if cheaper_label == "item2" else "—",
+                "winner": cheaper_label,
+                "section": "overview"
+            })
+
+            # Rating row
+            if rating1 is not None and rating2 is not None:
+                computed_rows.append({
+                    "label": "Customer Rating",
+                    "item1": f"⭐ {rating1}/5",
+                    "item2": f"⭐ {rating2}/5",
+                    "winner": row_winner(rating1, rating2, higher_is_better=True),
+                    "section": "overview"
+                })
+
+            # Value Score row
+            if vs1 is not None and vs2 is not None:
+                computed_rows.append({
+                    "label": "Value Score",
+                    "item1": f"{vs1} pts",
+                    "item2": f"{vs2} pts",
+                    "winner": row_winner(vs1, vs2, higher_is_better=True),
+                    "section": "overview"
+                })
+
+            # ─── DB spec rows (from product specifications) ───────────
+            # Priority ordering: Reviews first, then Warranty, then features
+            PRIORITY_KEYS = ["Reviews", "Warranty", "Pieces in Set", "Battery Life", "Driver Size",
+                             "Thickness", "Sole Material", "Upper Material", "Fabric Composition",
+                             "GSM (Fabric Weight)", "Base Material", "Coating", "Coating Layers",
+                             "Handle Type", "Induction Compatible", "Oven Safe", "Dishwasher Safe",
+                             "Heat Distribution", "Available Sizes", "Size", "Weight", "Weight per Shoe",
+                             "Noise Cancelling", "Connectivity", "Frequency Response", "Microphone",
+                             "Foldable", "Cushioning", "Breathability", "Arch Support", "Waterproof",
+                             "Fit", "Stitching", "Colorfastness", "Shrinkage Control", "Care",
+                             "Anti-slip", "Alignment Guides", "Carry Strap", "Eco-friendly",
+                             "Material"]
+            all_keys = sorted(
+                set(list(specs1.keys()) + list(specs2.keys())),
+                key=lambda k: (PRIORITY_KEYS.index(k) if k in PRIORITY_KEYS else 999, k)
+            )
+            spec_rows = []
+            for k in all_keys:
+                v1 = specs1.get(k, "N/A")
+                v2 = specs2.get(k, "N/A")
+                # Skip if both N/A
+                if v1 == "N/A" and v2 == "N/A":
+                    continue
+                # Price fields: cheaper is better
+                is_price = "price" in k.lower() or "cost" in k.lower()
+                w = row_winner(v1, v2, higher_is_better=not is_price)
+                spec_rows.append({"label": k, "item1": v1, "item2": v2, "winner": w, "section": "specs"})
+
+            # Full rows = computed overview + spec details
+            all_rows = computed_rows + spec_rows
+
+            # ─── Decide recommended item ──────────────────────────────
+            spec_winner_votes_1 = sum(1 for r in spec_rows if r["winner"] == "item1")
+            spec_winner_votes_2 = sum(1 for r in spec_rows if r["winner"] == "item2")
+            all_tied_specs = (spec_winner_votes_1 == 0 and spec_winner_votes_2 == 0)
+
+            if all_tied_specs or price_diff_pct > 12:
+                # Same or near-identical specs → value (cheaper) wins
+                recommended = cheaper_label
+                savings = int(price_diff)
+                reason = f"Same quality at ₹{savings:,} less — best value pick!"
+            elif spec_winner_votes_1 == spec_winner_votes_2:
+                # Equal spec wins → pick by value score, then rating
+                if vs1 is not None and vs2 is not None and abs(vs1 - vs2) > 0.05:
+                    recommended = "item1" if vs1 > vs2 else "item2"
+                    rec_vs = vs1 if recommended == "item1" else vs2
+                    reason = f"Better value score ({rec_vs} pts)"
+                elif rating1 is not None and rating2 is not None and abs(rating1 - rating2) > 0.02:
+                    recommended = "item1" if rating1 > rating2 else "item2"
+                    rec_r = rating1 if recommended == "item1" else rating2
+                    reason = f"Higher customer rating (⭐ {rec_r}/5)"
+                else:
+                    recommended = cheaper_label
+                    reason = "Best value for money"
+            else:
+                # More spec wins decides
+                if spec_winner_votes_1 > spec_winner_votes_2:
+                    recommended = "item1"
+                    reason = f"Better across {spec_winner_votes_1} features — superior overall specs"
+                else:
+                    recommended = "item2"
+                    reason = f"Better across {spec_winner_votes_2} features — superior overall specs"
+
+            rec_item = item1 if recommended == "item1" else item2
+            rec_name = rec_item.get("name", "")
+
+            # ─── Extract product base name ────────────────────────────
+            def base_name(n):
+                parts = n.rsplit(" - ", 1)
+                return parts[0] if len(parts) == 2 else n
+
+            product_base = base_name(name1)
+
+            # ─── Build WhatsApp/Email plain-text message ──────────────
+            col_w = 18
+            label_w = 22
+            h1 = (tier1 or name1.split(" - ")[-1])[:col_w].center(col_w)
+            h2 = (tier2 or name2.split(" - ")[-1])[:col_w].center(col_w)
+
+            lines = [
+                f"🆚 *{product_base} Comparison*",
+                f"{'─' * 42}",
+                f"{'':>{label_w}} {h1} | {h2}",
+            ]
+            # Overview rows
+            for row in computed_rows:
+                label = row["label"][:label_w-1]
+                v1s = str(row["item1"])[:col_w]
+                v2s = str(row["item2"])[:col_w]
+                win_mark1 = "✓ " if row["winner"] == "item1" else "  "
+                win_mark2 = "✓ " if row["winner"] == "item2" else "  "
+                lines.append(f"{label:<{label_w}} {win_mark1}{v1s:<{col_w-2}} | {win_mark2}{v2s}")
+
+            lines.append(f"{'─' * 42}")
+
+            # Key spec rows (top 8)
+            for row in spec_rows[:8]:
+                label = row["label"][:label_w-1]
+                v1s = str(row["item1"])[:col_w]
+                v2s = str(row["item2"])[:col_w]
+                win_mark1 = "✓ " if row["winner"] == "item1" else "  "
+                win_mark2 = "✓ " if row["winner"] == "item2" else "  "
+                lines.append(f"{label:<{label_w}} {win_mark1}{v1s:<{col_w-2}} | {win_mark2}{v2s}")
+
+            lines.append(f"{'─' * 42}")
+            lines.append(f"✅ *Our Pick: {rec_name}*")
+            lines.append(f"   {reason}")
+
+            plain_message = "\n".join(lines)
+
+            comparison_data = {
+                "product_base": product_base,
+                "item1": {
+                    "name": name1,
+                    "price": price1,
+                    "rating": rating1,
+                    "quality_tier": tier1,
+                    "value_score": vs1,
+                    "specs": specs1,
+                },
+                "item2": {
+                    "name": name2,
+                    "price": price2,
+                    "rating": rating2,
+                    "quality_tier": tier2,
+                    "value_score": vs2,
+                    "specs": specs2,
+                },
+                "spec_rows": all_rows,         # computed + DB spec rows combined
+                "recommended": recommended,
+                "reason": reason,
+                "rec_name": rec_name,
+                "price_diff": price_diff,
+                "price_diff_pct": round(price_diff_pct, 1),
+            }
+
+            return {"message": plain_message, "comparison_data": comparison_data}
+
+    return fallback
+
+
+def generate_comparison_message(session_data: Dict[str, Any]) -> str:
+    """Backward-compat wrapper — returns the plain-text message string."""
+    return generate_comparison_data(session_data)["message"]
 
 
 class LLMClient:
@@ -150,7 +365,7 @@ class LLMClient:
                 json={
                     "model": self.groq_model,
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 500,
+                    "max_tokens": 800,   # Fix #5: was 500 — truncation caused JSON parse failures
                     "temperature": 0.1,
                 },
             )
@@ -330,11 +545,18 @@ Session Signals:
 - Payment Risk: {payment_risk} (0=no payment issues, 1=high payment risk)
 - Payment Attempts: {payment_attempts}
 - Payment Failures: {payment_failures}
+- Form Field Errors: {form_field_errors}
 - Cart Value: ₹{cart_value}
 - Session Duration: {session_duration}s
 - Tab Switches: {tab_switches}
-- Form Field Errors: {form_field_errors}
 - Risk Score: {risk_score}
+
+Rules:
+- If payment_failures > 0 OR (payment_attempts > 1 AND payment_risk > 0.4): root_cause = PAYMENT_FAILURE
+- If form_field_errors > 2 OR funnel_friction > 0.65: root_cause = CHECKOUT_FRICTION
+- If comparison_intent > 0.55 OR tab_switches > 5: root_cause = COMPARISON_SHOPPING
+- If price_sensitivity > 0.65 AND hesitation_score > 0.5: root_cause = PRICE_SENSITIVITY
+- If urgency_score < 0.2 AND cart_value == 0: root_cause = LOW_INTENT
 
 Choose exactly ONE root cause from: PAYMENT_FAILURE, COMPARISON_SHOPPING, CHECKOUT_FRICTION, LOW_INTENT, PRICE_SENSITIVITY, UNKNOWN
 
@@ -380,15 +602,19 @@ Respond in JSON:
 
     def _rule_based_diagnosis(self, signals: Dict, session_data: Dict) -> Dict:
         """Rule-based fallback diagnosis."""
-        if session_data.get("payment_failures", 0) > 0:
+        payment_attempts = session_data.get("payment_attempts", 0)
+        payment_failures = session_data.get("payment_failures", 0)
+        form_field_errors = session_data.get("form_field_errors", 0)
+
+        if payment_failures > 0 or (payment_attempts > 1 and signals.get("payment_risk", 0) > 0.4):
             return {"root_cause": "PAYMENT_FAILURE", "confidence": 0.88, 
-                    "evidence": ["Payment failures detected"], "recommendation": "ALTERNATE_PAYMENT_GUIDANCE"}
+                    "evidence": ["Payment attempts/failures detected"], "recommendation": "ALTERNATE_PAYMENT_GUIDANCE"}
         elif signals.get("comparison_intent", 0) > 0.6:
             return {"root_cause": "COMPARISON_SHOPPING", "confidence": 0.80,
                     "evidence": ["High comparison intent signals"], "recommendation": "SOCIAL_PROOF_NUDGE"}
-        elif signals.get("funnel_friction", 0) > 0.6:
+        elif signals.get("funnel_friction", 0) > 0.6 or form_field_errors > 3:
             return {"root_cause": "CHECKOUT_FRICTION", "confidence": 0.75,
-                    "evidence": ["Funnel friction detected"], "recommendation": "CHECKOUT_ASSISTANCE"}
+                    "evidence": ["Funnel friction / field errors detected"], "recommendation": "CHECKOUT_ASSISTANCE"}
         elif signals.get("price_sensitivity", 0) > 0.7:
             return {"root_cause": "PRICE_SENSITIVITY", "confidence": 0.72,
                     "evidence": ["Price sensitivity signals"], "recommendation": "LIMITED_OFFER"}
@@ -469,14 +695,14 @@ class PolicyAgent:
         }.get(root_cause, 0.10)
         
         # Adjust for risk score (only act on high-risk sessions)
-        risk_multiplier = max(0, (risk_score - 0.5) * 2)
+        risk_multiplier = max(0.3, risk_score)
         return round(base_uplift * risk_multiplier, 4)
 
     def _get_allowed_actions(self, root_cause: str, consent_ok: bool, budget_ok: bool, risk_score: float) -> List[str]:
         """Get list of allowed actions given constraints."""
         actions = ["DO_NOTHING"]
         
-        if risk_score < 0.55:
+        if risk_score < 0.45:
             return actions
         
         actions.append("IN_APP_NUDGE")
@@ -696,7 +922,14 @@ Respond in JSON:
         )
         
         if diagnosis.get("root_cause") == "COMPARISON_SHOPPING":
-            action["message"] = generate_comparison_message(session_data)
+            cmp = generate_comparison_data(session_data)
+            action["message"] = cmp["message"]
+            if cmp.get("comparison_data"):
+                action["comparison_data"] = cmp["comparison_data"]
+            # Fix #7: Set COMPARISON_SHOPPING channel to WHATSAPP for cart_value > 1000
+            cart_val = session_data.get("cart_value", 0)
+            if cart_val > 1000:
+                action["channel"] = "WHATSAPP"
 
         latency = (time.time() - start) * 1000
         action["latency_ms"] = latency
@@ -719,8 +952,8 @@ Respond in JSON:
             },
             "COMPARISON_SHOPPING": {
                 "action_type": "SOCIAL_PROOF_NUDGE",
-                "channel": "IN_APP",
-                "message": generate_comparison_message(session_data),
+                "channel": "WHATSAPP" if cart_value > 1000 else "IN_APP",
+                **({k: v for k, v in generate_comparison_data(session_data).items()}),
                 "discount_amount": 0,
                 "discount_type": "NONE",
                 "urgency": "MEDIUM",
@@ -847,8 +1080,10 @@ class SelfCheckAgent:
 
     def _check_margin(self, action: Dict, session_data: Dict, policy: Dict) -> bool:
         discount = action.get("discount_amount", 0)
-        expected_margin = policy.get("expected_incremental_margin_inr", 0)
-        return discount <= expected_margin * 0.5  # discount < 50% of expected margin
+        cart_value = session_data.get("cart_value", 0)
+        # Allow discount if it does not exceed 10% of cart value, or 50% of expected incremental margin
+        margin_cap = cart_value * 0.10
+        return discount <= max(margin_cap, policy.get("expected_incremental_margin_inr", 0) * 0.5)
 
     def _check_logic(self, diagnosis: Dict, action: Dict) -> bool:
         """Prevent discounting when not needed."""
@@ -892,13 +1127,34 @@ class OrchestratorAgent:
             risk_result["risk_level"] = "HIGH"
             risk_result["reason"] = "COMPARISON_SHOPPING_DETECTED"
             risk_result["evidence"] = risk_result.get("evidence", []) + ["Multiple similar products with different prices in cart"]
+        
+        # Elevate risk for payment failure
+        elif session_data.get("payment_failures", 0) > 0 or (session_data.get("payment_attempts", 0) > 1 and signals.get("signals", {}).get("payment_risk", 0) > 0.4):
+            risk_result["risk_score"] = max(risk_result.get("risk_score", 0), 0.85)
+            risk_result["risk_level"] = "HIGH"
+            risk_result["reason"] = "PAYMENT_FAILURE_DETECTED"
+            risk_result["evidence"] = risk_result.get("evidence", []) + ["Payment failures or multiple attempts detected"]
+            
+        # Elevate risk for checkout friction
+        elif session_data.get("form_field_errors", 0) > 3 or signals.get("signals", {}).get("funnel_friction", 0) > 0.6:
+            risk_result["risk_score"] = max(risk_result.get("risk_score", 0), 0.72)
+            risk_result["risk_level"] = "HIGH"
+            risk_result["reason"] = "CHECKOUT_FRICTION_DETECTED"
+            risk_result["evidence"] = risk_result.get("evidence", []) + ["High form field errors or funnel friction"]
+
+        # Elevate risk for price sensitivity
+        elif signals.get("signals", {}).get("price_sensitivity", 0) > 0.65:
+            risk_result["risk_score"] = max(risk_result.get("risk_score", 0), 0.75)
+            risk_result["risk_level"] = "HIGH"
+            risk_result["reason"] = "PRICE_SENSITIVITY_DETECTED"
+            risk_result["evidence"] = risk_result.get("evidence", []) + ["High price sensitivity detected"]
 
         conversation.messages.append(AgentMessage("RiskAgent", risk_result, risk_result["latency_ms"]))
         total_cost += risk_result.get("cost_inr", 0)
 
         # Step 3: Diagnose (only for medium/high risk)
         risk_score = risk_result.get("risk_score", 0)
-        if risk_score >= 0.55:
+        if risk_score >= 0.45:
             diagnosis = await self.diagnosis_agent.diagnose(session_data, signals, risk_result)
         else:
             diagnosis = {"root_cause": "LOW_RISK", "confidence": 0.9, "evidence": [], "recommendation": "DO_NOTHING", "latency_ms": 0, "cost_inr": 0.001}

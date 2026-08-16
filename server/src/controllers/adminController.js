@@ -88,8 +88,12 @@ export const getUpliftSimulation = async (req, res) => {
 
 export const getAuditLog = async (req, res) => {
   try {
-    const { limit = 50, session_id } = req.query;
-    const qs = new URLSearchParams({ limit, ...(session_id ? { session_id } : {}) }).toString();
+    const { limit = 100, session_id, exclude_cooldown } = req.query;
+    const qs = new URLSearchParams({
+      limit,
+      ...(session_id ? { session_id } : {}),
+      ...(exclude_cooldown ? { exclude_cooldown: "true" } : {})
+    }).toString();
     res.json(await proxyGet(`/api/v1/audit?${qs}`));
   } catch (err) {
     res.status(502).json({ message: "ML service unavailable", detail: err.message });
@@ -140,20 +144,47 @@ export const getWhatsAppStatus = async (req, res) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const resp = await fetch(`${baseUrl}/api/${wppSession}/status-session`, { headers });
-    
-    if (resp.status === 404 || resp.status === 400) {
-      return res.json({ status: "DISCONNECTED", message: "Session not started yet" });
+    // 1. Check actual authentication/online state
+    try {
+      const connResp = await fetch(`${baseUrl}/api/${wppSession}/check-connection-session`, { headers });
+      if (connResp.status === 200) {
+        const connData = await connResp.json();
+        if (connData.status === true) {
+          return res.json({ status: "CONNECTED", message: "Connected" });
+        }
+      }
+    } catch {
+      // Continue to check status-session
     }
 
-    const contentType = resp.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      const data = await resp.json();
-      res.json(data);
-    } else {
-      const text = await resp.text();
-      res.json({ status: "DISCONNECTED", message: text });
+    // 2. Fetch session status to see if QR code is generated
+    const statusResp = await fetch(`${baseUrl}/api/${wppSession}/status-session`, { headers });
+    if (statusResp.status === 200) {
+      const statusData = await statusResp.json();
+      const statusStr = (statusData.status || "").toUpperCase();
+      
+      // If QR code is present or status is in QR state
+      if (statusData.qrcode) {
+        return res.json({
+          status: "QRCODE",
+          qrcode: statusData.qrcode,
+          urlcode: statusData.urlcode || null,
+          message: "Scan QR Code"
+        });
+      }
+
+      if (statusStr === "CONNECTED") {
+        return res.json({ status: "CONNECTED", message: "Connected" });
+      }
+
+      return res.json({
+        status: statusStr === "CLOSED" || statusStr === "DISCONNECTED" ? "DISCONNECTED" : statusStr || "STARTING",
+        qrcode: statusData.qrcode || null,
+        message: statusData.message || statusStr
+      });
     }
+
+    res.json({ status: "DISCONNECTED", message: "Session not started yet" });
   } catch (err) {
     res.status(502).json({ message: "WPPConnect server offline", error: err.message });
   }
@@ -174,12 +205,15 @@ export const startWhatsAppSession = async (req, res) => {
     const resp = await fetch(`${baseUrl}/api/${wppSession}/start-session`, {
       method: "POST",
       headers,
-      body: JSON.stringify({})
+      body: JSON.stringify({ waitQrCode: true })
     });
     
     const contentType = resp.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const data = await resp.json();
+      if (data.qrcode) {
+        data.status = "QRCODE";
+      }
       res.json(data);
     } else {
       const text = await resp.text();
@@ -206,8 +240,10 @@ export const getWhatsAppQRCode = async (req, res) => {
     
     const contentType = resp.headers.get("content-type") || "";
     if (resp.status === 200 && contentType.includes("image")) {
+      const arrayBuffer = await resp.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
       res.setHeader("Content-Type", "image/png");
-      resp.body.pipe(res);
+      return res.send(buffer);
     } else {
       res.status(404).send("QR code not ready yet");
     }

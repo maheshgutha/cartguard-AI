@@ -18,6 +18,17 @@ const getOrCreateCart = async (user) => {
 
 const scoreCartWithML = async (cart, user) => {
   await cart.populate("items.product");
+
+  // If any product reference is null/orphaned (e.g. after db re-seed), resolve by name
+  for (const item of cart.items) {
+    if (!item.product || !item.product.specifications || (item.product.specifications instanceof Map && item.product.specifications.size === 0)) {
+      const found = await Product.findOne({ name: item.name });
+      if (found) {
+        item.product = found;
+      }
+    }
+  }
+
   const cartValue = cart.items.reduce((s, i) => s + i.price * i.quantity, 0);
   const sessionDurationSec = (Date.now() - new Date(cart.sessionStart).getTime()) / 1000;
 
@@ -34,12 +45,27 @@ const scoreCartWithML = async (cart, user) => {
     user_email: user.email,
     user_phone: user.phone,
     email_opt_in: true,
-    cart_items: cart.items.map(i => ({
-      name: i.name,
-      price: i.price,
-      quantity: i.quantity,
-      specifications: i.product ? Object.fromEntries(i.product.specifications || new Map()) : {}
-    })),
+    whatsapp_opt_in: true,
+    sms_opt_in: true,
+    cart_items: cart.items.map(i => {
+      const prod = i.product;
+      let specs = {};
+      if (prod && prod.specifications) {
+        if (prod.specifications instanceof Map || typeof prod.specifications.get === "function") {
+          specs = Object.fromEntries(prod.specifications);
+        } else {
+          specs = prod.specifications;
+        }
+      }
+      return {
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        rating: prod ? (prod.rating ?? null) : null,
+        quality_tier: prod ? (prod.qualityTier ?? null) : null,
+        specifications: specs
+      };
+    }),
   };
 
   try {
@@ -165,7 +191,15 @@ export const heartbeat = async (req, res) => {
     const cart = await getOrCreateCart(req.user);
     cart.lastActivity = new Date();
     await cart.save();
-    res.json({ ok: true, lastActivity: cart.lastActivity });
+
+    // Re-score the cart on every heartbeat so time-based notifications fire
+    // automatically after the cooldown expires (even without user interaction)
+    let risk = null;
+    if (cart.items && cart.items.length > 0) {
+      risk = await scoreCartWithML(cart, req.user);
+    }
+
+    res.json({ ok: true, lastActivity: cart.lastActivity, risk });
   } catch (err) {
     res.status(500).json({ message: "Heartbeat failed", detail: err.message });
   }
@@ -186,7 +220,7 @@ export const goodbye = async (req, res) => {
 export const getUserNotifications = async (req, res) => {
   try {
     const userId = req.user._id.toString();
-    const resp = await fetch(`${ML_URL}/api/v1/audit?limit=50&user_id=${userId}`);
+    const resp = await fetch(`${ML_URL}/api/v1/audit?limit=50&user_id=${userId}&exclude_cooldown=true`);
     if (!resp.ok) throw new Error(`ML service responded ${resp.status}`);
     const data = await resp.json();
     res.json(data.logs || data);

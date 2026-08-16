@@ -223,6 +223,29 @@ class BehavioralSignalGenerator:
             back_navigations=sd.get("back_navigations", 0),
         )
 
+        # Check if they have comparison items in cart
+        has_comparison_items = False
+        items = sd.get("cart_items", [])
+        if items and len(items) >= 2:
+            for i in range(len(items)):
+                for j in range(i + 1, len(items)):
+                    item1 = items[i]
+                    item2 = items[j]
+                    name1 = (item1.get("name") or "").lower().strip()
+                    name2 = (item2.get("name") or "").lower().strip()
+                    price1 = float(item1.get("price") or 0)
+                    price2 = float(item2.get("price") or 0)
+                    words1 = name1.split()
+                    words2 = name2.split()
+                    min_len = min(len(words1), len(words2))
+                    if min_len >= 2:
+                        common_prefix = words1[:2] == words2[:2]
+                    else:
+                        common_prefix = name1 == name2
+                    if common_prefix and price1 != price2:
+                        has_comparison_items = True
+                        break
+
         comparison_intent = self.calculate_comparison_intent(
             category_switches=sd.get("category_switches", 0),
             tab_switches=sd.get("tab_switches", 0),
@@ -230,6 +253,8 @@ class BehavioralSignalGenerator:
             cart_adds=max(sd.get("cart_adds", 1), 1),
             session_duration=session_dur,
         )
+        if has_comparison_items:
+            comparison_intent = max(comparison_intent, 0.95)
 
         cart_adds = sd.get("cart_adds", 0)
         minutes = max(session_dur / 60.0, 0.1)

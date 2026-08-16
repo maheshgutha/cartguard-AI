@@ -92,7 +92,7 @@ export default function Notifications() {
 
   useEffect(() => {
     setLoading(true);
-    api.get("/admin/audit-log", { params: { limit: 100 } })
+    api.get("/admin/audit-log", { params: { limit: 100, exclude_cooldown: true } })
       .then((res) => {
         setLogs(res.data.logs || res.data);
       })
@@ -107,15 +107,22 @@ export default function Notifications() {
     const act = (l.action_type || "").toUpperCase();
     if (act === "DO_NOTHING" || act === "NONE" || !act) return false;
 
-    // 1. Channel Filter
-    const ch = (l.channel || "").toUpperCase();
+    // 1. Channel Filter — use dispatched_channels (actual sent) not agent channel (always IN_APP)
+    const dispatched = Array.isArray(l.dispatched_channels)
+      ? l.dispatched_channels.map((c) => c.toUpperCase())
+      : [];
+    // Fallback: if dispatched_channels not stored yet (old logs), use l.channel
+    const agentCh = (l.channel || "").toUpperCase();
+
     let matchesChannel = false;
     if (activeTab === "whatsapp") {
-      matchesChannel = ch === "WHATSAPP" || ch === "SMS";
+      matchesChannel = dispatched.some((c) => c === "WHATSAPP" || c === "SMS")
+        || agentCh === "WHATSAPP" || agentCh === "SMS";
     } else if (activeTab === "mail") {
-      matchesChannel = ch === "EMAIL";
+      matchesChannel = dispatched.includes("EMAIL") || agentCh === "EMAIL";
     } else if (activeTab === "dashboard") {
-      matchesChannel = ch !== "EMAIL" && ch !== "WHATSAPP" && ch !== "SMS";
+      // In-App is always present when an action fires
+      matchesChannel = dispatched.includes("IN_APP") || dispatched.length === 0 || agentCh === "IN_APP" || agentCh === "";
     }
 
     if (!matchesChannel) return false;
@@ -149,6 +156,7 @@ export default function Notifications() {
 
     return true;
   });
+
 
   return (
     <div>
@@ -237,46 +245,30 @@ export default function Notifications() {
             </div>
           )}
 
-          {wppStatus === "STARTING" && (
+          {(wppStatus === "STARTING" && !wppQrCode) && (
             <div style={{ textAlign: "center", padding: 16, background: "var(--bg-alt)", borderRadius: 10 }}>
               <div className="agent-spinner" style={{ width: 24, height: 24, margin: "0 auto 12px", borderWidth: 2 }} />
               <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Spinning up headless Chrome instance. Generating QR code…</div>
             </div>
           )}
 
-          {wppStatus === "QRCODE" && (
+          {(wppStatus === "QRCODE" || (wppStatus === "STARTING" && wppQrCode)) && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, background: "var(--bg-alt)", padding: 16, borderRadius: 10, border: "1px solid var(--border)" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>📲 Scan WhatsApp QR Code</div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
                 Open WhatsApp on your mobile device ➡️ Linked Devices ➡️ Link a Device, and scan below:
               </div>
               <img 
-                src={`/api/admin/whatsapp-qrcode?t=${qrTimestamp}`} 
+                src={wppQrCode || `/api/admin/whatsapp-qrcode?t=${qrTimestamp}`} 
                 alt="WhatsApp Link QR Code" 
-                onError={(e) => {
-                  if (wppQrCode) {
-                    e.target.src = wppQrCode;
-                    e.target.style.display = "block";
-                  } else {
-                    e.target.style.display = "none";
-                  }
-                }}
-                onLoad={(e) => {
-                  e.target.style.display = "block";
-                }}
-                style={{ background: "#fff", padding: 12, borderRadius: 8, width: 200, height: 200, border: "1px solid var(--border)", display: "none" }} 
+                style={{ background: "#fff", padding: 12, borderRadius: 8, width: 200, height: 200, border: "1px solid var(--border)", display: "block" }} 
               />
-              {!wppQrCode && (
-                <div id="wpp-qr-loader" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
-                  Syncing visual session token…
-                </div>
-              )}
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button onClick={checkWppStatus} className="primary" style={{ padding: "8px 16px", fontSize: 12, width: "auto" }}>
                   ✅ I scanned it (Check Link)
                 </button>
                 <button onClick={initWppSession} className="secondary" style={{ padding: "8px 16px", fontSize: 12, width: "auto" }}>
-                  Regenerate QR
+                  🔄 Regenerate QR
                 </button>
               </div>
             </div>
@@ -369,8 +361,47 @@ export default function Notifications() {
           {filteredLogs.map((l) => {
             const resultObj = l.full_result_json || {};
             const action = resultObj.action || {};
-            const message = action.message || l.message || "Hi! We noticed you left items in your cart. Complete your purchase now and claim a special discount!";
+            const rootCause = (l.root_cause || "").toUpperCase();
+            let defaultMsg = "Hi! We noticed you left items in your cart. Complete your purchase now and claim a special discount!";
+            if (rootCause === "PAYMENT_FAILURE") {
+              defaultMsg = "Having trouble paying? Try alternate payment methods or select Cash on Delivery to place your order successfully!";
+            } else if (rootCause === "COMPARISON_SHOPPING") {
+              defaultMsg = "We noticed you are comparing items! Get the best value and claim a special discount.";
+            } else if (rootCause === "CHECKOUT_FRICTION") {
+              defaultMsg = "Need help completing your order? Chat with us — we're here to help!";
+            }
+
+            const message = action.message || l.message || defaultMsg;
             const discount = action.discount_amount || l.discount_amount || 0;
+            const dispatchedChannels = Array.isArray(l.dispatched_channels) ? l.dispatched_channels : [];
+            const notifResult = l.notification_result || {};
+            const channelResults = notifResult.results || {};
+            const emailRes = channelResults.email || {};
+
+            const channelBadge = (ch) => {
+              const icons = { whatsapp: "💬", email: "📧", in_app: "🔔", sms: "📱" };
+              const colors = {
+                whatsapp: { bg: "rgba(37,211,102,0.1)", color: "#25D366" },
+                email: { bg: "rgba(99,102,241,0.1)", color: "#6366F1" },
+                in_app: { bg: "rgba(236,72,153,0.1)", color: "#EC4899" },
+                sms: { bg: "rgba(245,158,11,0.1)", color: "#F59E0B" },
+              };
+              const key = ch.toLowerCase();
+              const style = colors[key] || { bg: "rgba(148,163,184,0.1)", color: "var(--text-muted)" };
+              const res = channelResults[key] || {};
+              const status = res.status || "sent";
+              const isFailed = status === "failed" || status === "error";
+              return (
+                <span key={ch} style={{
+                  fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 4,
+                  background: isFailed ? "rgba(239,68,68,0.1)" : style.bg,
+                  color: isFailed ? "#EF4444" : style.color,
+                  border: `1px solid ${isFailed ? "rgba(239,68,68,0.2)" : style.color + "33"}`,
+                }}>
+                  {icons[key] || "📨"} {ch.toUpperCase()} {isFailed ? "✗ FAILED" : "✓"}
+                </span>
+              );
+            };
 
             return (
               <div
@@ -399,6 +430,12 @@ export default function Notifications() {
                     <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
                       Recipient User: {l.user_id} · Audited at {new Date(l.timestamp).toLocaleString()}
                     </div>
+                    {/* Dispatched Channel Badges */}
+                    {dispatchedChannels.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                        {dispatchedChannels.map(channelBadge)}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -420,6 +457,7 @@ export default function Notifications() {
 
                 {/* Sub-tab specific content preview */}
                 {activeTab === "whatsapp" && (
+
                   <div style={{
                     background: "rgba(7, 94, 84, 0.05)",
                     border: "1px solid rgba(7, 94, 84, 0.15)",
@@ -453,11 +491,11 @@ export default function Notifications() {
                     padding: 12,
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", marginBottom: 6 }}>
-                      📧 Resend Email Template
+                      📧 {emailRes?.sender?.includes("gmail") || emailRes?.response === "Success" ? "SMTP/Gmail Local Email Preview" : "Resend Email Template"}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-muted)", borderBottom: "1px solid var(--border)", paddingBottom: 6, marginBottom: 8 }}>
                       <strong>Subject:</strong> Complete Your Purchase | CartGuard AI<br />
-                      <strong>From:</strong> onboarding@resend.dev
+                      <strong>From:</strong> {emailRes?.sender || "onboarding@resend.dev"}
                     </div>
                     <div style={{
                       background: "var(--panel)",

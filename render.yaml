@@ -1,41 +1,55 @@
 services:
-  # 1. FastAPI Backend Service
+  # ── 1. Python FastAPI Machine Learning & Multi-Agent Core ────────────────
   - type: web
-    name: cartguard-backend
+    name: cartguard-ml-backend
     env: python
     region: oregon
     plan: free
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: LLM_PROVIDER
-        value: groq
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: cartguard
       - key: GROQ_API_KEY
         sync: false
-      - key: TWILIO_ACCOUNT_SID
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
         sync: false
-      - key: TWILIO_AUTH_TOKEN
+      - key: SMTP_PASSWORD
         sync: false
-      - key: TWILIO_FROM_NUMBER
-        sync: false
-      - key: SENDGRID_API_KEY
-        sync: false
+      - key: WPPCONNECT_API_URL
+        value: "http://127.0.0.1:21465"
+      - key: WPPCONNECT_SESSION
+        value: cartguard
 
-  # 2. Streamlit Dashboard Web Service
+  # ── 2. Node.js Express E-Commerce & Admin API Gateway ─────────────────────
   - type: web
-    name: cartguard-dashboard
-    env: python
+    name: cartguard-server
+    env: node
     region: oregon
     plan: free
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: streamlit run dashboard/app.py --server.port $PORT --server.address 0.0.0.0
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node src/server.js
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: API_BASE_URL
+      - key: NODE_VERSION
+        value: 20.x
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ML_SERVICE_URL
         fromService:
           type: web
-          name: cartguard-backend
+          name: cartguard-ml-backend
           property: host
+      - key: CLIENT_URL
+        value: "*"

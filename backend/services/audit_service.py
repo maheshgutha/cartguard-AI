@@ -108,6 +108,9 @@ class AuditService:
             diagnosis_confidence=diagnosis.get("confidence", 0),
             action_type=action.get("action_type", ""),
             channel=action.get("channel", ""),
+            message=action.get("message", ""),
+            dispatched_channels=result.get("dispatched_channels", []),
+            notification_result=result.get("notification_result", {}),
             discount_amount=action.get("discount_amount", 0),
             uplift_probability=policy.get("uplift_probability", 0),
             expected_margin=policy.get("expected_incremental_margin_inr", 0),
@@ -126,13 +129,15 @@ class AuditService:
         doc.pop("_id", None)
         return doc
 
-    def get_logs(self, limit: int = 50, session_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict]:
+    def get_logs(self, limit: int = 50, session_id: Optional[str] = None, user_id: Optional[str] = None, exclude_cooldown: bool = False) -> List[Dict]:
         """Retrieve audit log entries."""
         query = {}
         if session_id:
             query["session_id"] = session_id
         if user_id:
             query["user_id"] = user_id
+        if exclude_cooldown:
+            query["cooldown_active"] = {"$ne": True}
         cursor = self.audit_log.find(query).sort("timestamp", DESCENDING).limit(limit)
         return [self._clean(doc) for doc in cursor]
 
