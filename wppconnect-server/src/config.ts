@@ -16,7 +16,7 @@ export default {
   port: env.PORT || '21465',
   deviceName: 'WppConnect',
   poweredBy: 'WPPConnect-Server',
-  startAllSession: true,
+  startAllSession: false,
   tokenStoreType: env.TOKEN_STORE_TYPE || 'file',
   maxListeners: envNumber('MAX_LISTENERS', 15),
   customUserDataDir: env.CUSTOM_USER_DATA_DIR || './userDataDir/',

@@ -83,23 +83,25 @@ frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
-@app.get("/", response_class=FileResponse, tags=["Pages"])
-@app.get("/overview", response_class=FileResponse, tags=["Pages"])
-@app.get("/scenarios", response_class=FileResponse, tags=["Pages"])
+@app.get("/", tags=["Pages"])
+async def serve_root():
+    return {"service": "CartGuard AI ML Backend", "version": "2.0.0", "docs": "/docs"}
+
+@app.get("/overview", tags=["Pages"])
 async def serve_overview():
-    return FileResponse(os.path.join(frontend_path, "index.html"))
+    return {"service": "CartGuard AI ML Backend", "version": "2.0.0"}
 
-@app.get("/audit-trail", response_class=FileResponse, tags=["Pages"])
+@app.get("/audit-trail", tags=["Pages"])
 async def serve_audit_trail():
-    return FileResponse(os.path.join(frontend_path, "audit_trail.html"))
+    return {"service": "CartGuard AI ML Backend", "version": "2.0.0"}
 
-@app.get("/twilio-hub", response_class=FileResponse, tags=["Pages"])
+@app.get("/twilio-hub", tags=["Pages"])
 async def serve_twilio_hub():
-    return FileResponse(os.path.join(frontend_path, "twilio_hub.html"))
+    return {"service": "CartGuard AI ML Backend", "version": "2.0.0"}
 
-@app.get("/margin-analytics", response_class=FileResponse, tags=["Pages"])
+@app.get("/margin-analytics", tags=["Pages"])
 async def serve_margin_analytics():
-    return FileResponse(os.path.join(frontend_path, "margin_analytics.html"))
+    return {"service": "CartGuard AI ML Backend", "version": "2.0.0"}
 
 
 @app.get("/health", tags=["System"])

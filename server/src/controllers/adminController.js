@@ -117,12 +117,14 @@ const getWppToken = async (baseUrl, session) => {
   try {
     const resp = await fetch(`${baseUrl}/api/${session}/${secretKey}/generate-token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(5000)
     });
     if (resp.ok) {
       const data = await resp.json();
       if (data.token) {
         cachedToken = data.token;
+        setTimeout(() => { cachedToken = null; }, 3600000); // expire after 1h
         return cachedToken;
       }
     }
@@ -183,6 +185,9 @@ export const getWhatsAppStatus = async (req, res) => {
         message: statusData.message || statusStr
       });
     }
+
+    // statusResp status is not 200 — session likely doesn't exist yet
+    return res.json({ status: "DISCONNECTED", message: "Session not started" });
 
   } catch (err) {
     res.json({ status: "OFFLINE", message: "WPPConnect server offline", error: err.message });

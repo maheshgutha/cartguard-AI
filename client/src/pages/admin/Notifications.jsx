@@ -38,6 +38,8 @@ export default function Notifications() {
     setWppLoading(true);
     setWppStatus("STARTING");
     setWppQrCode("");
+    // Fire the start-session request — don't await it (can take 15s+)
+    // Polling loop below will pick up QRCODE status automatically
     api.post("/admin/whatsapp-start")
       .then((res) => {
         const status = (res.data.status || "").toUpperCase();
@@ -46,12 +48,14 @@ export default function Notifications() {
         } else if (res.data.qrcode) {
           setWppStatus("QRCODE");
           setWppQrCode(res.data.qrcode);
-        } else {
-          setWppStatus("STARTING");
+        } else if (status && status !== "STARTING") {
+          setWppStatus(status);
         }
+        // If still STARTING, polling will handle it
       })
       .catch((err) => {
         console.error("Failed to start session:", err);
+        // Don't reset to OFFLINE — keep STARTING so polling can still pick up QR
       })
       .finally(() => {
         setWppLoading(false);
@@ -221,8 +225,8 @@ export default function Notifications() {
           </p>
 
           {wppStatus === "OFFLINE" && (
-            <div style={{ padding: 12, background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.18)", borderRadius: 8, fontSize: 12, color: "#EF4444" }}>
-              <div>⚠️ <strong>WPPConnect Server is Offline</strong>: Please start your WhatsApp daemon locally on port <code>21465</code>.</div>
+            <div style={{ padding: 12, background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.18)", borderRadius: 8, fontSize: 12, color: "#EF4444", marginBottom: 10 }}>
+              <div>⚠️ <strong>WPPConnect Server is Offline or Starting Up</strong>: The WhatsApp daemon may still be warming up on Render (can take ~30s). Click the button below to start a session when it's ready.</div>
               <button onClick={checkWppStatus} className="secondary" style={{ marginTop: 8, padding: "5px 12px", fontSize: 11, width: "auto" }}>
                 🔄 Retry Connection
               </button>
@@ -238,7 +242,7 @@ export default function Notifications() {
             </div>
           )}
 
-          {(wppStatus === "DISCONNECTED" || wppStatus === "CLOSED" || wppStatus === "NOT_LOGGED") && (
+          {(wppStatus === "DISCONNECTED" || wppStatus === "CLOSED" || wppStatus === "NOT_LOGGED" || wppStatus === "OFFLINE") && (
             <div>
               <button onClick={initWppSession} className="primary" disabled={wppLoading} style={{ padding: "10px 20px", fontSize: 13, width: "auto" }}>
                 {wppLoading ? "🤖 Initializing session…" : "🔑 Start WhatsApp Link Session"}
