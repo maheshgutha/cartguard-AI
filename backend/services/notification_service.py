@@ -340,10 +340,22 @@ class NotificationService:
                 msg.attach(MIMEText(html_content, "html"))
 
                 def send_sync():
-                    with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                        server.starttls()
-                        server.login(self.smtp_user, self.smtp_password)
-                        server.sendmail(self.smtp_user, to_email, msg.as_string())
+                    # If port 465 configured or on cloud fallback, use SMTP_SSL
+                    if self.smtp_port == 465:
+                        with smtplib.SMTP_SSL(self.smtp_host, 465, timeout=12) as server:
+                            server.login(self.smtp_user, self.smtp_password)
+                            server.sendmail(self.smtp_user, to_email, msg.as_string())
+                    else:
+                        try:
+                            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=8) as server:
+                                server.starttls()
+                                server.login(self.smtp_user, self.smtp_password)
+                                server.sendmail(self.smtp_user, to_email, msg.as_string())
+                        except Exception as first_err:
+                            print(f"[SMTP 587 FALLBACK] Port {self.smtp_port} failed ({first_err}), retrying with SSL 465...")
+                            with smtplib.SMTP_SSL(self.smtp_host, 465, timeout=12) as server:
+                                server.login(self.smtp_user, self.smtp_password)
+                                server.sendmail(self.smtp_user, to_email, msg.as_string())
 
                 await asyncio.to_thread(send_sync)
                 print(f"[SMTP EMAIL SENT] Successfully sent via SMTP to {to_email}")
