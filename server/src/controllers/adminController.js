@@ -206,11 +206,13 @@ export const startWhatsAppSession = async (req, res) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // Use waitQrCode: false so start-session returns immediately (Chromium launch takes 30-60s)
+    // The frontend polling loop calls status-session every 3s to detect when QR is ready
     const resp = await fetch(`${baseUrl}/api/${wppSession}/start-session`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ waitQrCode: true }),
-      signal: AbortSignal.timeout(15000)
+      body: JSON.stringify({ waitQrCode: false }),
+      signal: AbortSignal.timeout(10000)
     });
     
     const contentType = resp.headers.get("content-type") || "";
@@ -218,6 +220,8 @@ export const startWhatsAppSession = async (req, res) => {
       const data = await resp.json();
       if (data.qrcode) {
         data.status = "QRCODE";
+      } else if (!data.status || data.status === "STARTING" || data.status === "CLOSED") {
+        data.status = "STARTING";
       }
       res.json(data);
     } else {
@@ -225,7 +229,14 @@ export const startWhatsAppSession = async (req, res) => {
       res.json({ status: "STARTING", message: text });
     }
   } catch (err) {
-    res.json({ status: "OFFLINE", message: "WPPConnect server offline", error: err.message });
+    // If request times out or errors, return STARTING (not OFFLINE)
+    // The session may still be launching in the background
+    const isTimeout = err.name === "TimeoutError" || err.name === "AbortError";
+    if (isTimeout) {
+      res.json({ status: "STARTING", message: "Session is starting up. QR code generating…" });
+    } else {
+      res.json({ status: "OFFLINE", message: "WPPConnect server offline", error: err.message });
+    }
   }
 };
 

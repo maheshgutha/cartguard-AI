@@ -1,6 +1,51 @@
 import { useEffect, useState } from "react";
 import api from "../../api/axios.js";
 
+// Helper to get the absolute API base URL for direct image fetches
+const API_BASE = (() => {
+  let url = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+  if (url && !url.endsWith("/api")) url = `${url}/api`;
+  return url; // empty string = relative /api/...
+})();
+
+// QR image component — tries to load from the qrcode-session image endpoint.
+// Shows a spinner while loading, falls back to a "not ready" message on 404.
+function QrImageWithFallback({ timestamp }) {
+  const [imgState, setImgState] = useState("loading"); // loading | ok | notready
+  const src = `${API_BASE}/admin/whatsapp-qrcode?t=${timestamp}`;
+
+  useEffect(() => {
+    setImgState("loading");
+  }, [timestamp]);
+
+  return (
+    <div style={{ width: 220, height: 220, background: "#fff", borderRadius: 8, border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
+      {imgState === "loading" && (
+        <>
+          <div className="agent-spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>QR loading…</div>
+        </>
+      )}
+      {imgState === "ok" && (
+        <img src={src} alt="WhatsApp QR" style={{ width: 220, height: 220, borderRadius: 8, display: "block" }} onError={() => setImgState("notready")} />
+      )}
+      {imgState === "notready" && (
+        <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: 12 }}>
+          ⏳ QR not ready yet<br/>WhatsApp Web is loading…<br/>Auto-retrying every 3s
+        </div>
+      )}
+      {/* Hidden img to detect when QR image becomes available */}
+      {imgState !== "ok" && (
+        <img
+          src={src} alt="" style={{ display: "none" }}
+          onLoad={() => setImgState("ok")}
+          onError={() => setImgState("notready")}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function Notifications() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,13 +120,16 @@ export default function Notifications() {
 
     if (activeTab === "whatsapp" && isPollingState) {
       interval = setInterval(() => {
-        setQrTimestamp(Date.now());
         api.get("/admin/whatsapp-status")
           .then((res) => {
-            const status = res.data.status || "DISCONNECTED";
+            const status = (res.data.status || "DISCONNECTED").toUpperCase();
             setWppStatus(status);
             if (res.data.qrcode) {
               setWppQrCode(res.data.qrcode);
+            }
+            // If WPPConnect says QRCODE state, bump timestamp to reload the QR image
+            if (status === "QRCODE" || status === "STARTING") {
+              setQrTimestamp(Date.now());
             }
           })
           .catch((err) => {
@@ -250,24 +298,23 @@ export default function Notifications() {
             </div>
           )}
 
-          {(wppStatus === "STARTING" && !wppQrCode) && (
-            <div style={{ textAlign: "center", padding: 16, background: "var(--bg-alt)", borderRadius: 10 }}>
-              <div className="agent-spinner" style={{ width: 24, height: 24, margin: "0 auto 12px", borderWidth: 2 }} />
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Spinning up headless Chrome instance. Generating QR code…</div>
-            </div>
-          )}
-
-          {(wppStatus === "QRCODE" || (wppStatus === "STARTING" && wppQrCode)) && (
+          {(wppStatus === "STARTING" || wppStatus === "QRCODE") && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, background: "var(--bg-alt)", padding: 16, borderRadius: 10, border: "1px solid var(--border)" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>📲 Scan WhatsApp QR Code</div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
-                Open WhatsApp on your mobile device ➡️ Linked Devices ➡️ Link a Device, and scan below:
+                {wppStatus === "STARTING" && !wppQrCode
+                  ? "⏳ Launching Chrome + WhatsApp Web… QR code loading (up to 30s on first run)"
+                  : "Open WhatsApp on your mobile device ➡️ Linked Devices ➡️ Link a Device, and scan below:"}
               </div>
-              <img 
-                src={wppQrCode ? (wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`) : `/api/admin/whatsapp-qrcode?t=${qrTimestamp}`} 
-                alt="WhatsApp Link QR Code" 
-                style={{ background: "#fff", padding: 12, borderRadius: 8, width: 200, height: 200, border: "1px solid var(--border)", display: "block" }} 
-              />
+              {wppQrCode ? (
+                <img
+                  src={wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`}
+                  alt="WhatsApp Link QR Code"
+                  style={{ background: "#fff", padding: 12, borderRadius: 8, width: 220, height: 220, border: "2px solid #10B981", display: "block" }}
+                />
+              ) : (
+                <QrImageWithFallback timestamp={qrTimestamp} />
+              )}
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button onClick={checkWppStatus} className="primary" style={{ padding: "8px 16px", fontSize: 12, width: "auto" }}>
                   ✅ I scanned it (Check Link)
