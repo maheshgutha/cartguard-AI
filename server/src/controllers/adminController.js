@@ -23,14 +23,40 @@ const proxyPost = async (path, body) => {
 
 // GET /api/admin/overview -- KPIs matching the old Streamlit Overview tab
 export const getOverview = async (req, res) => {
+  let metrics = {
+    total_sessions: 0,
+    high_risk_sessions: 0,
+    actions_taken: 0,
+    do_nothing_count: 0,
+    do_nothing_rate: 0,
+    total_discount_inr: 0,
+    avg_discount: 0,
+    avg_discount_per_action_inr: 0,
+    p95_latency_ms: 0,
+    recovery_rate: 0,
+    total_ai_cost_inr: 0,
+    cost_per_decision_inr: 0,
+    avg_latency_ms: 0,
+    avg_risk_score: 0,
+    cause_distribution: {},
+    action_distribution: {},
+    ml_service_offline: true,
+  };
+
   try {
-    const metrics = await proxyGet("/api/v1/metrics");
+    const mlMetrics = await proxyGet("/api/v1/metrics");
+    metrics = { ...mlMetrics, ml_service_offline: false };
+  } catch (err) {
+    console.warn("[AdminController] ML service offline during getOverview:", err.message);
+  }
+
+  try {
     const totalUsers = await User.countDocuments({ role: "user" });
     const totalOrders = await Order.countDocuments();
     const liveCarts = await Cart.countDocuments({ "items.0": { $exists: true } });
     res.json({ ...metrics, total_users: totalUsers, total_orders: totalOrders, live_carts: liveCarts });
   } catch (err) {
-    res.status(502).json({ message: "ML service unavailable", detail: err.message });
+    res.status(500).json({ message: "Database query error", detail: err.message });
   }
 };
 
@@ -61,11 +87,29 @@ export const scoreBatch = async (req, res) => {
   }
 };
 
+const FALLBACK_DEMO_SCENARIOS = [
+  {
+    name: "payment_failure",
+    description: "Complex Payment Failure: 2 failed UPI attempts, high time on payment page, high cart value",
+    expected: "ALTERNATE_PAYMENT_GUIDANCE"
+  },
+  {
+    name: "comparison_shopping",
+    description: "Comparison Shopping: 12 views, heavy category/tab switching, no checkout",
+    expected: "SOCIAL_PROOF_NUDGE"
+  },
+  {
+    name: "friction_abandonment",
+    description: "Checkout Friction: repeated form errors, back navigations, no payment attempt",
+    expected: "CHECKOUT_ASSISTANCE"
+  }
+];
+
 export const getDemoScenarios = async (req, res) => {
   try {
     res.json(await proxyGet("/api/v1/demo/scenarios"));
   } catch (err) {
-    res.status(502).json({ message: "ML service unavailable", detail: err.message });
+    res.json({ scenarios: FALLBACK_DEMO_SCENARIOS, ml_service_offline: true });
   }
 };
 
@@ -96,7 +140,7 @@ export const getAuditLog = async (req, res) => {
     }).toString();
     res.json(await proxyGet(`/api/v1/audit?${qs}`));
   } catch (err) {
-    res.status(502).json({ message: "ML service unavailable", detail: err.message });
+    res.json({ logs: [], count: 0, ml_service_offline: true, message: "ML service offline" });
   }
 };
 

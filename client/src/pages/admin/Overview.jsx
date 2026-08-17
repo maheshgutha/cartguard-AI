@@ -7,10 +7,21 @@ const COLORS = ["#4f46e5", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7"
 const Overview = () => {
   const [data, setData] = useState(null);
   const [liveSessions, setLiveSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const load = () => {
-    api.get("/admin/overview").then((res) => setData(res.data)).catch(() => {});
-    api.get("/admin/live-sessions").then((res) => setLiveSessions(res.data)).catch(() => {});
+    api.get("/admin/overview")
+      .then((res) => {
+        setData(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Overview fetch error:", err);
+        setLoading(false);
+      });
+    api.get("/admin/live-sessions")
+      .then((res) => setLiveSessions(res.data))
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -19,22 +30,47 @@ const Overview = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (!data) return <p>Loading metrics... (is the Python ML service running?)</p>;
+  if (loading && !data) return <p style={{ padding: "20px" }}>Loading metrics...</p>;
+  if (!data) return <p style={{ padding: "20px", color: "#ef4444" }}>Unable to load metrics. Retrying connection...</p>;
 
   const causeData = Object.entries(data.cause_distribution || {}).map(([name, value]) => ({ name, value }));
   const actionData = Object.entries(data.action_distribution || {}).map(([name, value]) => ({ name, value }));
 
   return (
     <div>
+      {data.ml_service_offline && (
+        <div style={{
+          background: "rgba(245, 158, 11, 0.12)",
+          border: "1px solid rgba(245, 158, 11, 0.35)",
+          color: "#d97706",
+          padding: "12px 16px",
+          borderRadius: "10px",
+          marginBottom: "20px",
+          fontSize: "13px",
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
+          <span style={{ fontSize: "18px" }}>⚠️</span>
+          <div>
+            <div><strong>Python ML Service is Offline or Starting Up</strong></div>
+            <div style={{ fontSize: "12px", fontWeight: 400, marginTop: "2px" }}>
+              Displaying live database counts (Registered Users, Orders, Live Carts). ML metrics will auto-update when active.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="kpi-grid">
-        <div className="kpi"><span>{data.total_sessions}</span>Total Sessions</div>
-        <div className="kpi"><span>{data.high_risk_sessions}</span>High Risk</div>
-        <div className="kpi"><span>{data.recovery_rate}</span>Recovery Rate</div>
-        <div className="kpi"><span>₹{data.total_discount_inr}</span>Total Discounts</div>
-        <div className="kpi"><span>{data.avg_latency_ms} ms</span>Avg Latency</div>
-        <div className="kpi"><span>{data.total_users}</span>Registered Users</div>
-        <div className="kpi"><span>{data.total_orders}</span>Orders Placed</div>
-        <div className="kpi"><span>{data.live_carts}</span>Live Carts (real-time)</div>
+        <div className="kpi"><span>{data.total_sessions ?? 0}</span>Total Sessions</div>
+        <div className="kpi"><span>{data.high_risk_sessions ?? 0}</span>High Risk</div>
+        <div className="kpi"><span>{typeof data.recovery_rate === "number" ? `${Math.round(data.recovery_rate * 100)}%` : data.recovery_rate ?? "0%"}</span>Recovery Rate</div>
+        <div className="kpi"><span>₹{data.total_discount_inr ?? 0}</span>Total Discounts</div>
+        <div className="kpi"><span>{data.avg_latency_ms ?? 0} ms</span>Avg Latency</div>
+        <div className="kpi"><span>{data.total_users ?? 0}</span>Registered Users</div>
+        <div className="kpi"><span>{data.total_orders ?? 0}</span>Orders Placed</div>
+        <div className="kpi"><span>{data.live_carts ?? 0}</span>Live Carts (real-time)</div>
       </div>
 
       <div className="chart-row">

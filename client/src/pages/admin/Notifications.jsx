@@ -8,14 +8,33 @@ const API_BASE = (() => {
   return url; // empty string = relative /api/...
 })();
 
-// QR image component — tries to load from the qrcode-session image endpoint.
-// Shows a spinner while loading, falls back to a "not ready" message on 404.
+// QR image component — fetches QR image blob via Axios (with Auth header) from the qrcode-session endpoint.
 function QrImageWithFallback({ timestamp }) {
+  const [imgUrl, setImgUrl] = useState(null);
   const [imgState, setImgState] = useState("loading"); // loading | ok | notready
-  const src = `${API_BASE}/admin/whatsapp-qrcode?t=${timestamp}`;
 
   useEffect(() => {
     setImgState("loading");
+    let isMounted = true;
+
+    api.get(`/admin/whatsapp-qrcode?t=${timestamp}`, { responseType: "blob" })
+      .then((res) => {
+        if (!isMounted) return;
+        const blobUrl = URL.createObjectURL(res.data);
+        setImgUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return blobUrl;
+        });
+        setImgState("ok");
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setImgState("notready");
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [timestamp]);
 
   return (
@@ -26,21 +45,13 @@ function QrImageWithFallback({ timestamp }) {
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>QR loading…</div>
         </>
       )}
-      {imgState === "ok" && (
-        <img src={src} alt="WhatsApp QR" style={{ width: 220, height: 220, borderRadius: 8, display: "block" }} onError={() => setImgState("notready")} />
+      {imgState === "ok" && imgUrl && (
+        <img src={imgUrl} alt="WhatsApp QR" style={{ width: 220, height: 220, borderRadius: 8, display: "block" }} />
       )}
       {imgState === "notready" && (
         <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: 12 }}>
           ⏳ QR not ready yet<br/>WhatsApp Web is loading…<br/>Auto-retrying every 3s
         </div>
-      )}
-      {/* Hidden img to detect when QR image becomes available */}
-      {imgState !== "ok" && (
-        <img
-          src={src} alt="" style={{ display: "none" }}
-          onLoad={() => setImgState("ok")}
-          onError={() => setImgState("notready")}
-        />
       )}
     </div>
   );
