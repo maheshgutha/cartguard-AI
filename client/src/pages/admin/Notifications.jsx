@@ -20,6 +20,10 @@ function QrImageWithFallback({ timestamp }) {
     api.get(`/admin/whatsapp-qrcode?t=${timestamp}`, { responseType: "blob" })
       .then((res) => {
         if (!isMounted) return;
+        if (res.status === 204 || !res.data || res.data.size === 0) {
+          setImgState("notready");
+          return;
+        }
         const blobUrl = URL.createObjectURL(res.data);
         setImgUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);

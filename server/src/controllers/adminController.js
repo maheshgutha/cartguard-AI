@@ -208,12 +208,31 @@ export const getWhatsAppStatus = async (req, res) => {
     if (statusResp.status === 200) {
       const statusData = await statusResp.json();
       const statusStr = (statusData.status || "").toUpperCase();
-      
-      // If QR code is present or status is in QR state
-      if (statusData.qrcode) {
+      let qrCode = statusData.qrcode || null;
+
+      // If status-session didn't return qrcode directly, check qrcode-session
+      if (!qrCode && (statusStr === "QRCODE" || statusStr === "STARTING" || statusStr === "INITIALIZING" || statusStr === "NOT_LOGGED" || statusStr === "CLOSED")) {
+        try {
+          const qrResp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(3000) });
+          if (qrResp.ok) {
+            const qrType = qrResp.headers.get("content-type") || "";
+            if (qrType.includes("json")) {
+              const qrData = await qrResp.json();
+              qrCode = qrData.qrcode || null;
+            } else if (qrType.includes("image")) {
+              const buf = await qrResp.arrayBuffer();
+              qrCode = `data:image/png;base64,${Buffer.from(buf).toString("base64")}`;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (qrCode) {
         return res.json({
           status: "QRCODE",
-          qrcode: statusData.qrcode,
+          qrcode: qrCode,
           urlcode: statusData.urlcode || null,
           message: "Scan QR Code"
         });
@@ -225,7 +244,7 @@ export const getWhatsAppStatus = async (req, res) => {
 
       return res.json({
         status: statusStr === "CLOSED" || statusStr === "DISCONNECTED" ? "DISCONNECTED" : statusStr || "STARTING",
-        qrcode: statusData.qrcode || null,
+        qrcode: null,
         message: statusData.message || statusStr
       });
     }
@@ -299,15 +318,25 @@ export const getWhatsAppQRCode = async (req, res) => {
     const resp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(5000) });
     
     const contentType = resp.headers.get("content-type") || "";
-    if (resp.status === 200 && contentType.includes("image")) {
-      const arrayBuffer = await resp.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      res.setHeader("Content-Type", "image/png");
-      return res.send(buffer);
-    } else {
-      res.status(404).send("QR code not ready yet");
+    if (resp.status === 200) {
+      if (contentType.includes("image")) {
+        const arrayBuffer = await resp.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        res.setHeader("Content-Type", "image/png");
+        return res.send(buffer);
+      } else if (contentType.includes("json")) {
+        const data = await resp.json();
+        if (data.qrcode) {
+          const base64Str = data.qrcode.replace(/^data:image\/\w+;base64,/, "");
+          const buffer = Buffer.from(base64Str, "base64");
+          res.setHeader("Content-Type", "image/png");
+          return res.send(buffer);
+        }
+      }
     }
+    // Return 204 No Content instead of 404 error so Axios/DevTools doesn't log console errors
+    res.status(204).end();
   } catch (err) {
-    res.status(502).send("WPPConnect server offline");
+    res.status(204).end();
   }
 };
