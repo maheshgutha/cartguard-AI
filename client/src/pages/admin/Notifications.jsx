@@ -377,7 +377,7 @@ export default function Notifications() {
               </div>
               {wppQrCode ? (
                 <img
-                  src={wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`}
+                  src={wppQrCode.startsWith("http") || wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`}
                   alt="WhatsApp Link QR Code"
                   style={{ background: "#fff", padding: 12, borderRadius: 8, width: 220, height: 220, border: "2px solid #10B981", display: "block" }}
                 />
@@ -601,6 +601,26 @@ export default function Notifications() {
                     }}>
                       {message}
                     </div>
+                    <a
+                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 10,
+                        padding: "6px 12px",
+                        background: "#25D366",
+                        color: "#ffffff",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textDecoration: "none"
+                      }}
+                    >
+                      💬 Send via WhatsApp Web / App →
+                    </a>
                   </div>
                 )}
 
