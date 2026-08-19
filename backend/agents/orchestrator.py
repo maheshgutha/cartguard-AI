@@ -320,37 +320,43 @@ def generate_comparison_message(session_data: Dict[str, Any]) -> str:
 
 
 class LLMClient:
-    """Unified LLM client supporting Groq (Llama), OpenAI, and local Ollama."""
+    """Unified LLM client defaulting to OpenAI GPT models (gpt-4o-mini / gpt-4o)."""
 
     def __init__(self):
-        self.groq_key = os.getenv("GROQ_API_KEY", "")
         self.openai_key = os.getenv("OPENAI_API_KEY", "")
-        self.provider = os.getenv("LLM_PROVIDER", "groq")
+        self.groq_key = os.getenv("GROQ_API_KEY", "")
+        self.provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.groq_model = "llama-3.1-8b-instant"
-        self.openai_model = "gpt-4o-mini"
         self.local_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")
 
-    async def complete(self, prompt: str, model_size: str = "small") -> Dict[str, Any]:
+    async def complete(self, prompt: str, system_prompt: str = "", model_size: str = "small") -> Dict[str, Any]:
         """
-        Complete a prompt using the appropriate model.
-        model_size: 'small' (Llama 3B), 'medium' (GPT-4o-mini), 'large' (GPT-4o)
+        Complete a prompt using OpenAI GPT models (or fallback).
         """
         start = time.time()
         cost = 0.0
+        full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
 
         try:
-            if self.provider == "groq" and self.groq_key:
-                result = await self._groq_complete(prompt)
-                cost = 0.05  # ~0.05 INR for Llama 3B via Groq
-            elif self.provider == "openai" and self.openai_key:
-                result = await self._openai_complete(prompt, model_size)
-                cost = 0.50 if model_size == "large" else 0.15
+            if self.openai_key or self.provider == "openai":
+                if self.openai_key:
+                    result = await self._openai_complete(full_prompt, model_size)
+                    cost = 0.50 if model_size == "large" else 0.15
+                elif self.groq_key and self.provider == "groq":
+                    result = await self._groq_complete(full_prompt)
+                    cost = 0.05
+                else:
+                    result = self._rule_based_fallback(prompt)
+                    cost = 0.001
+            elif self.provider == "groq" and self.groq_key:
+                result = await self._groq_complete(full_prompt)
+                cost = 0.05
             else:
-                # Fallback: Rule-based response (no LLM cost)
                 result = self._rule_based_fallback(prompt)
                 cost = 0.001
         except Exception as e:
-            print(f"LLM error: {e}. Using rule-based fallback.")
+            # Silent fallback to deterministic rules if no API key is provided
             result = self._rule_based_fallback(prompt)
             cost = 0.001
 

@@ -34,9 +34,9 @@ class Settings(BaseSettings):
     FEATURE_PIPELINE_PATH: str = "models/feature_pipeline.pkl"
 
     # LLM Settings
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
     OPENAI_MODEL: str = "gpt-4o-mini"
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
     LOCAL_LLM_URL: str = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")
 
     # Agent Settings
