@@ -87,6 +87,16 @@ class NotificationService:
                 pass
         self._mem_cache[key] = now
 
+    def clear_cooldowns(self):
+        """Wipe all cooldown timers so notifications fire immediately for testing."""
+        if self._mongo_cooldown is not None:
+            try:
+                self._mongo_cooldown.delete_many({})
+            except Exception:
+                pass
+        self._mem_cache.clear()
+        print("[NOTIFICATION] Cooldowns cleared for testing.")
+
     # Keep last_sent_cache as a property alias for backward compat
     # (main.py reads notification_service.last_sent_cache)
     @property

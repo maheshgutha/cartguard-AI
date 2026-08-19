@@ -506,12 +506,19 @@ async def run_demo_scenario(scenario_name: str):
     }
 
 
+@app.post("/api/v1/clear-cooldown", tags=["Notifications"])
+async def clear_cooldown_endpoint():
+    """Clear all active 10-minute anti-spam notification cooldowns for testing."""
+    notification_service.clear_cooldowns()
+    return {"status": "success", "message": "All notification cooldowns cleared."}
+
+
 @app.post("/api/v1/send-test-email", tags=["Notifications"])
-async def send_test_email(to_email: str = "yuvagude@gmail.com", discount_percent: float = 10.0):
+async def send_test_email(to_email: str = "maheshchoudare21@gmail.com", discount_percent: float = 10.0):
     """
-    Send a test cart recovery email to high priority user (e.g. yuvagude@gmail.com).
+    Send a test cart recovery email to high priority user (e.g. maheshchoudare21@gmail.com).
     """
-    session_id = f"SES-YUVA-{int(time.time())}"
+    session_id = f"SES-TEST-{int(time.time())}"
     message = f"Notice you left items in your cart! As a valued high-priority customer, enjoy an exclusive {int(discount_percent)}% discount (promo code: SAVE{int(discount_percent)}) to complete your purchase today."
     cart_value = 1500.0
     discount_amount = cart_value * (discount_percent / 100.0)

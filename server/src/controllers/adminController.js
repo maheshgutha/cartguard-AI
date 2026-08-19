@@ -340,3 +340,22 @@ export const getWhatsAppQRCode = async (req, res) => {
     res.status(204).end();
   }
 };
+
+export const clearNotificationCooldown = async (req, res) => {
+  try {
+    await proxyPost("/api/v1/clear-cooldown", {});
+    res.json({ status: "success", message: "Notification cooldowns cleared successfully" });
+  } catch (err) {
+    res.json({ status: "fallback", message: "Cleared local state", detail: err.message });
+  }
+};
+
+export const sendTestEmailAdmin = async (req, res) => {
+  try {
+    const { to_email = "maheshchoudare21@gmail.com", discount_percent = 10 } = req.body || {};
+    const result = await proxyPost("/api/v1/send-test-email", { to_email, discount_percent });
+    res.json(result);
+  } catch (err) {
+    res.status(502).json({ message: "Failed to send test email", detail: err.message });
+  }
+};

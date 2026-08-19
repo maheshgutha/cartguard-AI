@@ -12,6 +12,8 @@ import {
   getWhatsAppStatus,
   startWhatsAppSession,
   getWhatsAppQRCode,
+  clearNotificationCooldown,
+  sendTestEmailAdmin,
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
@@ -31,5 +33,7 @@ router.get("/orders", getAllOrdersAdmin);
 router.get("/whatsapp-status", getWhatsAppStatus);
 router.post("/whatsapp-start", startWhatsAppSession);
 router.get("/whatsapp-qrcode", getWhatsAppQRCode);
+router.post("/clear-cooldown", clearNotificationCooldown);
+router.post("/send-test-email", sendTestEmailAdmin);
 
 export default router;

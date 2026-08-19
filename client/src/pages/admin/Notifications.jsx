@@ -226,12 +226,66 @@ export default function Notifications() {
   });
 
 
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState("");
+
+  const handleClearCooldown = () => {
+    api.post("/admin/clear-cooldown")
+      .then(() => setTestResult("⚡ Anti-spam 10-min cooldown cleared! Notifications will fire immediately."))
+      .catch((err) => setTestResult("Failed to clear cooldown: " + err.message));
+  };
+
+  const handleSendTestEmail = () => {
+    setTestSending(true);
+    setTestResult("Sending test email to maheshchoudare21@gmail.com...");
+    api.post("/admin/send-test-email", { to_email: "maheshchoudare21@gmail.com", discount_percent: 15 })
+      .then((res) => {
+        setTestResult("✅ Test email dispatched via SMTP! Result: " + JSON.stringify(res.data.email_result));
+      })
+      .catch((err) => {
+        setTestResult("❌ Test email failed: " + (err.response?.data?.message || err.message));
+      })
+      .finally(() => setTestSending(false));
+  };
+
   return (
     <div>
-      <h2>Notifications Dispatcher Log</h2>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4, marginBottom: 20 }}>
-        Monitor automated cart recovery messages dispatched across multi-agent channels.
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Notifications Dispatcher Log</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4, margin: 0 }}>
+            Monitor automated cart recovery messages dispatched across multi-agent channels.
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={handleClearCooldown}
+            className="secondary"
+            style={{ padding: "6px 12px", fontSize: 12, width: "auto" }}
+          >
+            ⚡ Clear 10-Min Cooldown
+          </button>
+          <button
+            onClick={handleSendTestEmail}
+            disabled={testSending}
+            className="primary"
+            style={{ padding: "6px 14px", fontSize: 12, width: "auto" }}
+          >
+            {testSending ? "📧 Sending..." : "📧 Send Test Email"}
+          </button>
+        </div>
+      </div>
+
+      {testResult && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16,
+          background: testResult.startsWith("❌") ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
+          border: `1px solid ${testResult.startsWith("❌") ? "rgba(239, 68, 68, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
+          color: testResult.startsWith("❌") ? "#EF4444" : "#10B981"
+        }}>
+          {testResult}
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
