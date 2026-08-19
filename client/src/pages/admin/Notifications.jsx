@@ -375,15 +375,11 @@ export default function Notifications() {
                   ? "⏳ Launching Chrome + WhatsApp Web… QR code loading (up to 30s on first run)"
                   : "Open WhatsApp on your mobile device ➡️ Linked Devices ➡️ Link a Device, and scan below:"}
               </div>
-              {wppQrCode ? (
-                <img
-                  src={wppQrCode.startsWith("http") || wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`}
-                  alt="WhatsApp Link QR Code"
-                  style={{ background: "#fff", padding: 12, borderRadius: 8, width: 220, height: 220, border: "2px solid #10B981", display: "block" }}
-                />
-              ) : (
-                <QrImageWithFallback timestamp={qrTimestamp} />
-              )}
+              <img
+                src={wppQrCode ? (wppQrCode.startsWith("http") || wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`) : `/api/admin/whatsapp-qrcode?t=${qrTimestamp}`}
+                alt="WhatsApp Link QR Code"
+                style={{ background: "#fff", padding: 12, borderRadius: 8, width: 220, height: 220, border: "2px solid #10B981", display: "block" }}
+              />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button onClick={checkWppStatus} className="primary" style={{ padding: "8px 16px", fontSize: 12, width: "auto" }}>
                   ✅ I scanned it (Check Link)

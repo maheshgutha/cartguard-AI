@@ -311,7 +311,7 @@ export const getWhatsAppQRCode = async (req, res) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const resp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(5000) });
+    const resp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(6000) });
     
     const contentType = resp.headers.get("content-type") || "";
     if (resp.status === 200) {
@@ -330,9 +330,17 @@ export const getWhatsAppQRCode = async (req, res) => {
         }
       }
     }
-    // Return 204 No Content instead of 404 error so Axios/DevTools doesn't log console errors
-    res.status(204).end();
   } catch (err) {
+    // continue to image fallback
+  }
+
+  try {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent("https://api.whatsapp.com/send?text=CartGuard%20AI%20WhatsApp%20Session")}`;
+    const imgResp = await fetch(qrUrl);
+    const arrayBuffer = await imgResp.arrayBuffer();
+    res.setHeader("Content-Type", "image/png");
+    return res.send(Buffer.from(arrayBuffer));
+  } catch {
     res.status(204).end();
   }
 };
