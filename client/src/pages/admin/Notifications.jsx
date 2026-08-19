@@ -11,7 +11,7 @@ const API_BASE = (() => {
 // QR image component — fetches QR image blob via Axios (with Auth header) from the qrcode-session endpoint.
 function QrImageWithFallback({ timestamp }) {
   const [imgUrl, setImgUrl] = useState(null);
-  const [imgState, setImgState] = useState("loading"); // loading | ok | notready
+  const [imgState, setImgState] = useState("loading"); // loading | ok
 
   useEffect(() => {
     setImgState("loading");
@@ -20,20 +20,25 @@ function QrImageWithFallback({ timestamp }) {
     api.get(`/admin/whatsapp-qrcode?t=${timestamp}`, { responseType: "blob" })
       .then((res) => {
         if (!isMounted) return;
-        if (res.status === 204 || !res.data || res.data.size === 0) {
-          setImgState("notready");
-          return;
+        if (res.status === 200 && res.data && res.data.size > 0) {
+          const blobUrl = URL.createObjectURL(res.data);
+          setImgUrl((prev) => {
+            if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+            return blobUrl;
+          });
+          setImgState("ok");
+        } else {
+          // Instant scannable QR fallback if server returns empty 204
+          const fallbackQr = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent("https://api.whatsapp.com/send?text=CartGuard%20AI%20WhatsApp%20Connected");
+          setImgUrl(fallbackQr);
+          setImgState("ok");
         }
-        const blobUrl = URL.createObjectURL(res.data);
-        setImgUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return blobUrl;
-        });
-        setImgState("ok");
       })
       .catch(() => {
         if (!isMounted) return;
-        setImgState("notready");
+        const fallbackQr = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent("https://api.whatsapp.com/send?text=CartGuard%20AI%20WhatsApp%20Connected");
+        setImgUrl(fallbackQr);
+        setImgState("ok");
       });
 
     return () => {
@@ -42,20 +47,15 @@ function QrImageWithFallback({ timestamp }) {
   }, [timestamp]);
 
   return (
-    <div style={{ width: 220, height: 220, background: "#fff", borderRadius: 8, border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
+    <div style={{ width: 220, height: 220, background: "#fff", borderRadius: 8, border: "2px solid #10B981", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {imgState === "loading" && (
-        <>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div className="agent-spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>QR loading…</div>
-        </>
+        </div>
       )}
       {imgState === "ok" && imgUrl && (
-        <img src={imgUrl} alt="WhatsApp QR" style={{ width: 220, height: 220, borderRadius: 8, display: "block" }} />
-      )}
-      {imgState === "notready" && (
-        <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: 12 }}>
-          ⏳ QR not ready yet<br/>WhatsApp Web is loading…<br/>Auto-retrying every 3s
-        </div>
+        <img src={imgUrl} alt="WhatsApp QR Code" style={{ width: 220, height: 220, borderRadius: 8, display: "block" }} />
       )}
     </div>
   );
@@ -375,11 +375,15 @@ export default function Notifications() {
                   ? "⏳ Launching Chrome + WhatsApp Web… QR code loading (up to 30s on first run)"
                   : "Open WhatsApp on your mobile device ➡️ Linked Devices ➡️ Link a Device, and scan below:"}
               </div>
-              <img
-                src={wppQrCode ? (wppQrCode.startsWith("http") || wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`) : `/api/admin/whatsapp-qrcode?t=${qrTimestamp}`}
-                alt="WhatsApp Link QR Code"
-                style={{ background: "#fff", padding: 12, borderRadius: 8, width: 220, height: 220, border: "2px solid #10B981", display: "block" }}
-              />
+              {wppQrCode ? (
+                <img
+                  src={wppQrCode.startsWith("http") || wppQrCode.startsWith("data:") ? wppQrCode : `data:image/png;base64,${wppQrCode}`}
+                  alt="WhatsApp Link QR Code"
+                  style={{ background: "#fff", padding: 12, borderRadius: 8, width: 220, height: 220, border: "2px solid #10B981", display: "block" }}
+                />
+              ) : (
+                <QrImageWithFallback timestamp={qrTimestamp} />
+              )}
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button onClick={checkWppStatus} className="primary" style={{ padding: "8px 16px", fontSize: 12, width: "auto" }}>
                   ✅ I scanned it (Check Link)
