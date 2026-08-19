@@ -601,26 +601,47 @@ export default function Notifications() {
                     }}>
                       {message}
                     </div>
-                    <a
-                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        marginTop: 10,
-                        padding: "6px 12px",
-                        background: "#25D366",
-                        color: "#ffffff",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        textDecoration: "none"
-                      }}
-                    >
-                      💬 Send via WhatsApp Web / App →
-                    </a>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                      <button
+                        onClick={() => {
+                          const formattedPhone = (l.recipient_phone || "").replace(/\D/g, "") || "919876543210";
+                          api.post("/admin/whatsapp-send", { phone: formattedPhone, message: message })
+                            .then((res) => alert("🤖 WPPConnect Dispatch Response: " + JSON.stringify(res.data)))
+                            .catch((err) => alert("❌ WPPConnect Error: " + (err.response?.data?.message || err.message)));
+                        }}
+                        className="primary"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 12px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          width: "auto"
+                        }}
+                      >
+                        🤖 Send via WPPConnect API
+                      </button>
+                      <a
+                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 12px",
+                          background: "#25D366",
+                          color: "#ffffff",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textDecoration: "none"
+                        }}
+                      >
+                        💬 Web / Mobile App Link
+                      </a>
+                    </div>
                   </div>
                 )}
 

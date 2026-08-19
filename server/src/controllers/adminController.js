@@ -190,30 +190,30 @@ export const getWhatsAppStatus = async (req, res) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // 1. Check actual authentication/online state
+    // 1. Check actual authentication state on WPPConnect
     try {
-      const connResp = await fetch(`${baseUrl}/api/${wppSession}/check-connection-session`, { headers, signal: AbortSignal.timeout(3500) });
+      const connResp = await fetch(`${baseUrl}/api/${wppSession}/check-connection-session`, { headers, signal: AbortSignal.timeout(4000) });
       if (connResp.status === 200) {
         const connData = await connResp.json();
         if (connData.status === true) {
-          return res.json({ status: "CONNECTED", message: "Connected" });
+          return res.json({ status: "CONNECTED", message: "Connected to WhatsApp" });
         }
       }
     } catch {
-      // Continue to check status-session
+      // Continue to status-session
     }
 
-    // 2. Fetch session status to see if QR code is generated
-    const statusResp = await fetch(`${baseUrl}/api/${wppSession}/status-session`, { headers, signal: AbortSignal.timeout(3500) });
+    // 2. Fetch session status from WPPConnect engine
+    const statusResp = await fetch(`${baseUrl}/api/${wppSession}/status-session`, { headers, signal: AbortSignal.timeout(4000) });
     if (statusResp.status === 200) {
       const statusData = await statusResp.json();
       const statusStr = (statusData.status || "").toUpperCase();
       let qrCode = statusData.qrcode || null;
 
-      // If status-session didn't return qrcode directly, check qrcode-session
+      // If qrcode is not in status-session, fetch directly from qrcode-session endpoint
       if (!qrCode && (statusStr === "QRCODE" || statusStr === "STARTING" || statusStr === "INITIALIZING" || statusStr === "NOT_LOGGED" || statusStr === "CLOSED")) {
         try {
-          const qrResp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(3000) });
+          const qrResp = await fetch(`${baseUrl}/api/${wppSession}/qrcode-session`, { headers, signal: AbortSignal.timeout(4000) });
           if (qrResp.ok) {
             const qrType = qrResp.headers.get("content-type") || "";
             if (qrType.includes("json")) {
@@ -234,35 +234,25 @@ export const getWhatsAppStatus = async (req, res) => {
           status: "QRCODE",
           qrcode: qrCode,
           urlcode: statusData.urlcode || null,
-          message: "Scan QR Code"
+          message: "Scan WhatsApp QR Code with phone"
         });
       }
 
       if (statusStr === "CONNECTED") {
-        return res.json({ status: "CONNECTED", message: "Connected" });
+        return res.json({ status: "CONNECTED", message: "Connected to WhatsApp" });
       }
 
-      // If session is starting or starting Chrome, provide instant scannable WhatsApp Web link QR
-      const instantLink = `https://api.whatsapp.com/send?text=${encodeURIComponent("CartGuard AI WhatsApp Gateway Connected")}`;
-      const instantQr = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(instantLink)}`;
-
       return res.json({
-        status: "QRCODE",
-        qrcode: instantQr,
-        message: "Instant WhatsApp Web Link QR Ready",
-        is_fallback: true
+        status: statusStr === "CLOSED" || statusStr === "DISCONNECTED" ? "DISCONNECTED" : statusStr || "STARTING",
+        qrcode: null,
+        message: statusData.message || statusStr
       });
     }
 
-    // statusResp status is not 200 — provide instant scannable QR link
-    const instantLink = `https://api.whatsapp.com/send?text=${encodeURIComponent("CartGuard AI WhatsApp Gateway Connected")}`;
-    const instantQr = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(instantLink)}`;
-    return res.json({ status: "QRCODE", qrcode: instantQr, message: "Instant WhatsApp Web Link QR Ready", is_fallback: true });
+    return res.json({ status: "DISCONNECTED", message: "WPPConnect session not started" });
 
   } catch (err) {
-    const instantLink = `https://api.whatsapp.com/send?text=${encodeURIComponent("CartGuard AI WhatsApp Gateway Active")}`;
-    const instantQr = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(instantLink)}`;
-    res.json({ status: "QRCODE", qrcode: instantQr, message: "Instant WhatsApp Web Link QR Ready", is_fallback: true, error: err.message });
+    res.json({ status: "OFFLINE", message: "WPPConnect server offline", error: err.message });
   }
 };
 
@@ -278,13 +268,12 @@ export const startWhatsAppSession = async (req, res) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // Use waitQrCode: false so start-session returns immediately (Chromium launch takes 30-60s)
-    // The frontend polling loop calls status-session every 3s to detect when QR is ready
+    // Pass waitQrCode: true so WPPConnect returns QR code directly in start-session response
     const resp = await fetch(`${baseUrl}/api/${wppSession}/start-session`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ waitQrCode: false }),
-      signal: AbortSignal.timeout(10000)
+      body: JSON.stringify({ waitQrCode: true }),
+      signal: AbortSignal.timeout(30000)
     });
     
     const contentType = resp.headers.get("content-type") || "";
@@ -301,8 +290,6 @@ export const startWhatsAppSession = async (req, res) => {
       res.json({ status: "STARTING", message: text });
     }
   } catch (err) {
-    // If request times out or errors, return STARTING (not OFFLINE)
-    // The session may still be launching in the background
     const isTimeout = err.name === "TimeoutError" || err.name === "AbortError";
     if (isTimeout) {
       res.json({ status: "STARTING", message: "Session is starting up. QR code generating…" });
@@ -366,5 +353,32 @@ export const sendTestEmailAdmin = async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(502).json({ message: "Failed to send test email", detail: err.message });
+  }
+};
+
+export const sendWhatsAppMessageAdmin = async (req, res) => {
+  const wppUrl = process.env.WPPCONNECT_API_URL || "http://127.0.0.1:21465";
+  const wppSession = process.env.WPPCONNECT_SESSION || "cartguard";
+  const { phone, message } = req.body || {};
+
+  try {
+    const baseUrl = wppUrl.replace(/\/+$/, "");
+    const token = await getWppToken(baseUrl, wppSession);
+    const headers = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const resp = await fetch(`${baseUrl}/api/${wppSession}/send-message`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ phone, message }),
+      signal: AbortSignal.timeout(15000)
+    });
+
+    const data = await resp.json();
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ message: "Failed to send WhatsApp message via WPPConnect", error: err.message });
   }
 };
