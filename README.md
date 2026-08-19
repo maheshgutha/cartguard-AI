@@ -5,6 +5,7 @@
 ![Breakpoint Hackathon 2026](https://img.shields.io/badge/Breakpoint_Hackathon_2026-Project_Submission-8B5CF6?style=for-the-badge&logo=target&logoColor=white)
 ![AI & Intelligent Systems](https://img.shields.io/badge/Track-AI_%26_Intelligent_Systems_%7C_Finance_%26_Commerce-10B981?style=for-the-badge)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend_ML-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
 [![React](https://img.shields.io/badge/React_18-Vite_Storefront_%26_Admin-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas_%26_Audit_Trail-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
 [![WPPConnect](https://img.shields.io/badge/WhatsApp-WPPConnect_Puppeteer-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wppconnect.io)
@@ -64,16 +65,16 @@ Shopper fails UPI payment twice ──> Dumb System sends "You left items in car
 flowchart LR
     A["🛒 Shopper Micro-Telemetry<br/>(Tab switches, hesitation, payment attempts, form errors)"] 
     --> B["⚡ CatBoost/XGBoost ML<br/>(<10ms Real-Time Risk Scoring)"]
-    --> C["🧠 Multi-Agent Diagnostic Engine<br/>(Llama 3.2 Chain-of-Thought Reasoning)"]
+    --> C["🧠 Multi-Agent Diagnostic Engine<br/>(OpenAI GPT-4o-mini Chain-of-Thought Reasoning)"]
     --> D["🛡️ Policy Engine Guardrails<br/>(10-Min Cooldown, Margin Caps, TRAI/DND)"]
-    --> E["🚀 Multi-Channel Dispatch<br/>(WhatsApp Bot, HTML Email, In-App Banner)"]
+    --> E["🚀 Multi-Channel Dispatch<br/>(WPPConnect WhatsApp, SMTP SSL Email, In-App Banner)"]
 ```
 
 ### 🌟 Key Innovations:
 1. **Dynamic Product Spec Comparison Engine**: When a shopper hesitates between two similar items (e.g., *Pro Max* vs *Elite* cookware), CartGuard AI generates an instant side-by-side spec comparison table with an automated **"✅ Best Pick"** recommendation highlighting superior specs and price savings.
 2. **Deterministic `DO_NOTHING` Intelligence**: If a shopper is already determined to buy or has low purchase intent, the policy engine deliberately defaults to `DO_NOTHING`, eliminating discount leakage.
-3. **True Multi-Channel Synchronous Dispatch**: Dispatches coordinated messaging across **WhatsApp** (via local WPPConnect engine), **Email** (responsive HTML comparison matrices via SMTP/Resend), and **In-App Storefront Banners**.
-4. **MongoDB TTL Cooldown & Audit Trail**: Strictly enforces a 10-minute anti-spam cooldown and maintains a 100% transparent, explainable AI decision audit log with full feature weight traces.
+3. **True Multi-Channel Synchronous Dispatch**: Dispatches coordinated messaging across **WhatsApp** (via local WPPConnect engine & direct API), **Email** (responsive HTML comparison matrices via SMTP SSL Port 465), and **In-App Storefront Banners**.
+4. **MongoDB TTL Cooldown & Audit Trail**: Strictly enforces a 10-minute anti-spam cooldown (with 1-click admin reset testing) and maintains a 100% transparent, explainable AI decision audit log with full feature weight traces.
 
 ---
 
@@ -84,9 +85,9 @@ CartGuard AI separates concerns into specialized autonomous agents governed by m
 ```mermaid
 flowchart TD
     subgraph Storefront ["🌐 Storefront & Client SDK (React + Vite)"]
-        UI["E-Commerce Storefront<br/>(Products, Cart, Notifications)"]
+        UI["E-Commerce Storefront<br/>(Shop, Cart, User Notifications)"]
         Tele["Real-Time Micro-Signal Emitter<br/>(tab_switch, idle, error, payment)"]
-        Admin["Executive Admin Dashboard<br/>(Live Carts, Audit Trail, Scenarios)"]
+        Admin["Executive Admin Dashboard<br/>(Overview, Live Carts, Audit Trail, Scenarios)"]
     end
 
     subgraph Server ["⚡ API & State Ingestion (Express + Node.js)"]
@@ -97,15 +98,15 @@ flowchart TD
     subgraph Brain ["🧠 Multi-Agent Python ML Engine (FastAPI + Ensemble)"]
         SignalAgent["1. Signal Generator Agent<br/>Computes 50+ Behavioral Micro-Features"]
         RiskAgent["2. Risk Assessor Agent<br/>CatBoost + XGBoost ML (<10ms p95)"]
-        DiagnosisAgent["3. Diagnosis Engine<br/>Llama 3.2 Chain-of-Thought Classifier"]
+        DiagnosisAgent["3. Diagnosis Engine<br/>OpenAI GPT-4o-mini CoT Classifier"]
         PolicyAgent["4. Policy Guardrail Engine<br/>Budget Limits, Margin Check, Cooldown Check"]
         ActionAgent["5. Action & Comparison Engine<br/>Generates Structured Comparison & Nudges"]
         AuditService["6. Audit & Evidence Logger<br/>MongoDB Full Decision Trail"]
     end
 
     subgraph Channels ["🚀 Multi-Channel Communication Layer"]
-        WPP["💬 WPPConnect WhatsApp Service<br/>(Puppeteer Direct Session)"]
-        SMTP["📧 Gmail SMTP / Resend<br/>(Rich Responsive HTML)"]
+        WPP["💬 WPPConnect WhatsApp Service<br/>(Puppeteer Direct Session & API)"]
+        SMTP["📧 Gmail SMTP SSL (Port 465)<br/>(Rich Responsive HTML)"]
         InApp["🖥️ In-App Toast & Dynamic Navbar Banner"]
     end
 
@@ -145,7 +146,7 @@ flowchart TD
 | **Product Confusion** | Ignored completely | **Structured Side-by-Side Spec Comparison** | **Eliminates decision paralysis** |
 | **Payment Failures** | Generic marketing email sent | **Instant Alternate Payment/COD Guidance** | **+42% Failed Payment Recovery** |
 | **Delivery Channels** | Email only (often lands in Promotions/Spam) | **WhatsApp (WPPConnect) + Email + In-App** | **3x Higher Open Rates** |
-| **Anti-Spam Controls** | Weak or manual | **MongoDB TTL 10-Minute Enforced Cooldown** | **Zero User Annoyance** |
+| **Anti-Spam Controls** | Weak or manual | **MongoDB TTL 10-Min Enforced Cooldown** | **Zero User Annoyance** |
 | **AI Explainability** | Black-box or non-existent | **Full Interactive Audit Log & Evidence Chain** | **Enterprise Compliance Ready** |
 
 ---
@@ -189,9 +190,9 @@ CartGuard-AI/
 
 - **Frontend**: React 18, Vite, Context API, CSS3 Glassmorphism UI, Responsive Comparison Cards.
 - **Backend API**: Node.js, Express, Mongoose ODM, MongoDB Atlas with TTL indices.
-- **AI/ML Service**: Python 3.10+, FastAPI, CatBoost, XGBoost, Groq / Llama 3.2 3B LLM, Pydantic v2.
-- **WhatsApp Engine**: Local WPPConnect Server (`@wppconnect/server`) with QR Code Authentication.
-- **Email Delivery**: Python `smtplib` Gmail SMTP & Resend API with responsive HTML templates.
+- **AI/ML Service**: Python 3.10+, FastAPI, CatBoost, XGBoost, OpenAI GPT-4o-mini LLM, Pydantic v2.
+- **WhatsApp Engine**: Local WPPConnect Server (`@wppconnect/server`) with QR Code Authentication & API dispatch.
+- **Email Delivery**: Python `smtplib` Gmail SMTP SSL (Port 465) with responsive HTML templates.
 
 ---
 
@@ -204,8 +205,8 @@ CartGuard-AI/
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/Swathi-20051128/Cart-rescue.git
-cd Cart-rescue
+git clone https://github.com/maheshgutha/cartguard-AI.git
+cd cartguard-AI
 ```
 
 ### 2. Configure Environment Variables
@@ -222,14 +223,15 @@ ML_SERVICE_URL=http://127.0.0.1:8000
 WPPCONNECT_API_URL=http://127.0.0.1:21465
 WPPCONNECT_SESSION=cartguard
 
-# Email (Gmail SMTP / Resend)
+# Email (Gmail SMTP SSL)
 SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
+SMTP_PORT=465
 SMTP_USER=your_email@gmail.com
 SMTP_PASSWORD=your_app_password
 
 # LLM Reasoning Engine
-GROQ_API_KEY=your_groq_api_key
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ### 3. Install & Seed Database
@@ -254,7 +256,7 @@ pip install -r requirements.txt
 cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2: Node.js Express API Server (Port 5000)
+# Terminal 2: Node.js Express API Server (Port 10000)
 cd server
 npm run dev
 
