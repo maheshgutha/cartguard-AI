@@ -151,6 +151,22 @@ export const getAllOrdersAdmin = async (req, res) => {
 
 let cachedToken = null;
 
+// Render's `fromService: { property: host }` injects a BARE hostname like
+// "cartguard-wppconnect.onrender.com" — no "http(s)://" scheme. fetch()
+// throws "Invalid URL" on that, which was being swallowed by the catch
+// blocks below, so the QR endpoint silently fell through to "not ready"
+// forever on the deployed Render environment. Always normalize to a full
+// URL before calling fetch.
+const normalizeWppBaseUrl = (raw) => {
+  const fallback = "http://127.0.0.1:21465";
+  if (!raw) return fallback;
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (!trimmed) return fallback;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Render service hostnames are always served over HTTPS.
+  return `https://${trimmed}`;
+};
+
 const getWppToken = async (baseUrl, session) => {
   const envToken = process.env.WPPCONNECT_TOKEN;
   if (envToken) return envToken;
@@ -183,7 +199,7 @@ export const getWhatsAppStatus = async (req, res) => {
   const wppSession = process.env.WPPCONNECT_SESSION || "cartguard";
 
   try {
-    const baseUrl = wppUrl.replace(/\/+$/, "");
+    const baseUrl = normalizeWppBaseUrl(wppUrl);
     const token = await getWppToken(baseUrl, wppSession);
     const headers = { "Content-Type": "application/json" };
     if (token) {
@@ -261,7 +277,7 @@ export const startWhatsAppSession = async (req, res) => {
   const wppSession = process.env.WPPCONNECT_SESSION || "cartguard";
 
   try {
-    const baseUrl = wppUrl.replace(/\/+$/, "");
+    const baseUrl = normalizeWppBaseUrl(wppUrl);
     const token = await getWppToken(baseUrl, wppSession);
     const headers = { "Content-Type": "application/json" };
     if (token) {
@@ -304,7 +320,7 @@ export const getWhatsAppQRCode = async (req, res) => {
   const wppSession = process.env.WPPCONNECT_SESSION || "cartguard";
 
   try {
-    const baseUrl = wppUrl.replace(/\/+$/, "");
+    const baseUrl = normalizeWppBaseUrl(wppUrl);
     const token = await getWppToken(baseUrl, wppSession);
     const headers = {};
     if (token) {
@@ -366,7 +382,7 @@ export const sendWhatsAppMessageAdmin = async (req, res) => {
   const { phone, message } = req.body || {};
 
   try {
-    const baseUrl = wppUrl.replace(/\/+$/, "");
+    const baseUrl = normalizeWppBaseUrl(wppUrl);
     const token = await getWppToken(baseUrl, wppSession);
     const headers = { "Content-Type": "application/json" };
     if (token) {
