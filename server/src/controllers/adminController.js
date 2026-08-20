@@ -331,18 +331,14 @@ export const getWhatsAppQRCode = async (req, res) => {
       }
     }
   } catch (err) {
-    // continue to image fallback
+    // fall through to 204 below
   }
 
-  try {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent("https://api.whatsapp.com/send?text=CartGuard%20AI%20WhatsApp%20Session")}`;
-    const imgResp = await fetch(qrUrl);
-    const arrayBuffer = await imgResp.arrayBuffer();
-    res.setHeader("Content-Type", "image/png");
-    return res.send(Buffer.from(arrayBuffer));
-  } catch {
-    res.status(204).end();
-  }
+  // Real QR not ready / WPPConnect not reachable yet. Return 204 (no content)
+  // instead of a decoy QR — a decoy image is not a valid WhatsApp "Link a
+  // Device" code, gets rejected by the phone as invalid, and closes instantly.
+  // The frontend keeps polling and shows a loading state until this succeeds.
+  res.status(204).end();
 };
 
 export const clearNotificationCooldown = async (req, res) => {

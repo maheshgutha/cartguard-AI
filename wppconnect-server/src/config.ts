@@ -68,8 +68,12 @@ export default {
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--no-first-run',
-        '--no-zygote',
-        '--single-process',
+        // NOTE: '--single-process' and '--no-zygote' were removed on purpose.
+        // That combo is known to crash headless Chrome mid-launch on many
+        // hosts/containers — the browser process dies right after the QR is
+        // drawn, which is exactly the "QR shows then closes instantly /
+        // invalid QR" symptom. Puppeteer needs its normal multi-process
+        // model to keep the WhatsApp Web page (and QR) alive.
         '--disable-extensions',
         '--disable-software-rasterizer',
         '--disable-background-networking',

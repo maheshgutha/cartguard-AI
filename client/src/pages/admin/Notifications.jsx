@@ -28,17 +28,17 @@ function QrImageWithFallback({ timestamp }) {
           });
           setImgState("ok");
         } else {
-          // Instant scannable QR fallback if server returns empty 204
-          const fallbackQr = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent("https://api.whatsapp.com/send?text=CartGuard%20AI%20WhatsApp%20Connected");
-          setImgUrl(fallbackQr);
-          setImgState("ok");
+          // Real QR not ready yet — DO NOT show a decoy QR (it is not a valid
+          // WhatsApp "Link a Device" code and will be rejected as invalid by
+          // the phone). Keep showing the loading state and let polling retry.
+          setImgUrl(null);
+          setImgState("loading");
         }
       })
       .catch(() => {
         if (!isMounted) return;
-        const fallbackQr = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent("https://api.whatsapp.com/send?text=CartGuard%20AI%20WhatsApp%20Connected");
-        setImgUrl(fallbackQr);
-        setImgState("ok");
+        setImgUrl(null);
+        setImgState("loading");
       });
 
     return () => {
@@ -49,9 +49,9 @@ function QrImageWithFallback({ timestamp }) {
   return (
     <div style={{ width: 220, height: 220, background: "#fff", borderRadius: 8, border: "2px solid #10B981", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {imgState === "loading" && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 12, textAlign: "center" }}>
           <div className="agent-spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>QR loading…</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Waiting for real WhatsApp QR from WPPConnect…</div>
         </div>
       )}
       {imgState === "ok" && imgUrl && (

@@ -513,11 +513,23 @@ async def clear_cooldown_endpoint():
     return {"status": "success", "message": "All notification cooldowns cleared."}
 
 
+class SendTestEmailRequest(BaseModel):
+    to_email: str = "maheshchoudare21@gmail.com"
+    discount_percent: float = 10.0
+
+
 @app.post("/api/v1/send-test-email", tags=["Notifications"])
-async def send_test_email(to_email: str = "maheshchoudare21@gmail.com", discount_percent: float = 10.0):
+async def send_test_email(body: SendTestEmailRequest = SendTestEmailRequest()):
     """
     Send a test cart recovery email to high priority user (e.g. maheshchoudare21@gmail.com).
+
+    NOTE: previously to_email/discount_percent were plain scalar params, which
+    FastAPI binds to QUERY params, not JSON body. The client/Node proxy always
+    POSTs a JSON body, so those values were silently ignored and defaults were
+    used every time. Wrapping them in a Pydantic model fixes that.
     """
+    to_email = body.to_email
+    discount_percent = body.discount_percent
     session_id = f"SES-TEST-{int(time.time())}"
     message = f"Notice you left items in your cart! As a valued high-priority customer, enjoy an exclusive {int(discount_percent)}% discount (promo code: SAVE{int(discount_percent)}) to complete your purchase today."
     cart_value = 1500.0

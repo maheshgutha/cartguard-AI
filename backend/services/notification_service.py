@@ -337,6 +337,7 @@ class NotificationService:
         """
 
         # ── SMTP (Nodemailer equivalent) Dispatch ───────────────────
+        smtp_result = None
         if self.smtp_user and self.smtp_password:
             import smtplib
             from email.mime.text import MIMEText
@@ -377,21 +378,34 @@ class NotificationService:
                     "sender": self.smtp_user
                 }
             except Exception as e:
-                print(f"[SMTP EMAIL FAILED] Error sending to {to_email}: {e}")
-                return {
+                # Give the real reason up front — the two most common causes are:
+                # (535, 'Username and Password not accepted') -> Gmail App
+                # Password is wrong/expired/revoked (Google auto-revokes App
+                # Passwords it detects leaked in a public repo/zip).
+                # timeout / [Errno 111] -> SMTP port 465/587 is blocked by the
+                # host's network/firewall (common on many cloud platforms).
+                err_str = str(e)
+                print(f"[SMTP EMAIL FAILED] Error sending to {to_email}: {err_str}")
+                smtp_result = {
                     "status": "failed",
                     "channel": "email",
                     "status_code": 500,
-                    "response": str(e),
-                    "sender": self.smtp_user
+                    "response": err_str,
+                    "sender": self.smtp_user,
                 }
+                # Do NOT return here — fall through to Resend below so a bad/
+                # revoked SMTP password doesn't kill email delivery entirely
+                # when a working RESEND_API_KEY is also configured.
+                if not self.resend_key:
+                    return smtp_result
+                print("[EMAIL] SMTP failed, falling back to Resend API...")
 
         # ── Resend API Dispatch ──────────────────────────────────────
         if not self.resend_key or not to_email:
             safe_subj = subject.encode('ascii', 'replace').decode('ascii')
             safe_msg = message.encode('ascii', 'replace').decode('ascii')
             print(f"[EMAIL MOCK] To: {to_email} | Subject: {safe_subj} | Message: {safe_msg}")
-            return {"status": "mock_sent", "channel": "email"}
+            return smtp_result or {"status": "mock_sent", "channel": "email"}
 
         # Resend Sandbox fallback: force recipient to owner email if sending to other addresses in sandbox
         original_to = to_email
@@ -422,11 +436,12 @@ class NotificationService:
                     "channel": "email",
                     "status_code": response.status_code,
                     "response": response.text,
-                    "sender": self.from_email
+                    "sender": self.from_email,
+                    "smtp_error": smtp_result["response"] if smtp_result else None,
                 }
         except Exception as e:
             print(f"[EMAIL ERROR] {str(e)}")
-            return {"status": "error", "error": str(e), "sender": self.from_email}
+            return {"status": "error", "error": str(e), "sender": self.from_email, "smtp_error": smtp_result["response"] if smtp_result else None}
 
 
 
