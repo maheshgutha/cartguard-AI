@@ -48,4 +48,8 @@ COPY . .
 RUN npm run build
 
 EXPOSE 21465
-ENTRYPOINT ["node", "dist/server.js"]
+# Cap Node's own heap so it leaves more of Render free tier's 512MB RAM
+# budget for Chrome — Node+Chrome together were exceeding the limit and
+# getting OOM-killed a few seconds into the WhatsApp Web session (QR
+# disappears / session closes almost instantly).
+ENTRYPOINT ["node", "--max-old-space-size=200", "dist/server.js"]

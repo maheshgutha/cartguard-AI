@@ -85,6 +85,18 @@ export default {
         '--safebrowsing-disable-auto-update',
         '--ignore-certificate-errors',
         '--memory-pressure-off',
+        // Render free plan = 512MB RAM total. A full headless Chrome
+        // loading WhatsApp Web can spike past that and get OOM-killed a
+        // few seconds in (browser closes, QR never renders / disappears
+        // instantly). These flags cut Chrome's own memory footprint.
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-accelerated-2d-canvas',
+        '--disable-canvas-aa',
+        '--disable-2d-canvas-clip-aa',
+        '--window-size=480,640',
+        '--js-flags=--max-old-space-size=256',
       ],
     },
     browserArgs: [
@@ -112,6 +124,11 @@ export default {
       '--ignore-certificate-errors',
       '--ignore-ssl-errors',
       '--ignore-certificate-errors-spki-list',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-accelerated-2d-canvas',
+      '--window-size=480,640',
     ],
     /**
      * Example of configuring the linkPreview generator
