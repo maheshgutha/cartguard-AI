@@ -6,6 +6,14 @@ import useHeartbeat from "../../hooks/useHeartbeat.js";
 
 const CATEGORIES = ["All", "Electronics", "Footwear", "Fashion", "Home & Kitchen", "Fitness"];
 
+const CATEGORY_FALLBACKS = {
+  "Electronics": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+  "Footwear": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80",
+  "Fashion": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80",
+  "Home & Kitchen": "https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&w=600&q=80",
+  "Fitness": "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?auto=format&fit=crop&w=600&q=80",
+};
+
 const Store = () => {
   useHeartbeat();
   const { updateCartState } = useCart();
@@ -49,7 +57,14 @@ const Store = () => {
         {products.map((p) => (
           <div className="product-card" key={p._id}>
             <Link to={`/product/${p._id}`}>
-              <img src={p.image} alt={p.name} />
+              <img
+                src={p.image}
+                alt={p.name}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = CATEGORY_FALLBACKS[p.category] || CATEGORY_FALLBACKS["Electronics"];
+                }}
+              />
               <h3>{p.name}</h3>
             </Link>
             <p className="category">{p.category} · {p.qualityTier}</p>
