@@ -305,6 +305,50 @@ export const chat = async (req, res) => {
       reply = isUserAdmin
         ? `Hello ${req.user.name || "Admin"}! 🚀 I am your CartGuard AI Product Copilot. Ask me anything about ML risk scores, platform telemetry, active sessions, or system architecture!`
         : `Hi ${req.user.name || "there"}! 🤖 I am your CartGuard assistant. How can I help you with your order, products, or payment questions today?`;
+    } else if (
+      msgLower.includes("rating") ||
+      msgLower.includes("rate") ||
+      msgLower.includes("star") ||
+      msgLower.includes("review") ||
+      msgLower.includes("yoga") ||
+      msgLower.includes("cookware") ||
+      msgLower.includes("headphone") ||
+      msgLower.includes("shoe") ||
+      msgLower.includes("t-shirt") ||
+      msgLower.includes("tshirt")
+    ) {
+      // Dynamic MongoDB Product Search
+      let matchedProduct = null;
+      try {
+        // Try searching by specific product name terms
+        const cleanMessage = msgLower.replace(/(give|rating|rate|stars?|reviews?|these|this|product|what|is|the|for|about|show|tell|me|to)/gi, "").trim();
+        if (cleanMessage) {
+          matchedProduct = await Product.findOne({ name: { $regex: cleanMessage.split(/\s+/).join(".*"), $options: "i" } });
+        }
+        if (!matchedProduct) {
+          if (msgLower.includes("yoga")) matchedProduct = await Product.findOne({ name: /Yoga Mat - Elite/i }) || await Product.findOne({ name: /Yoga Mat/i });
+          else if (msgLower.includes("cookware")) matchedProduct = await Product.findOne({ name: /Cookware Set - Elite/i }) || await Product.findOne({ name: /Cookware/i });
+          else if (msgLower.includes("headphone")) matchedProduct = await Product.findOne({ name: /Headphones - Elite/i }) || await Product.findOne({ name: /Headphones/i });
+          else if (msgLower.includes("shoe")) matchedProduct = await Product.findOne({ name: /Shoes - Elite/i }) || await Product.findOne({ name: /Shoes/i });
+          else if (msgLower.includes("t-shirt") || msgLower.includes("tshirt")) matchedProduct = await Product.findOne({ name: /T-Shirt - Elite/i }) || await Product.findOne({ name: /T-Shirt/i });
+        }
+      } catch (e) {}
+
+      if (matchedProduct) {
+        let specText = "";
+        if (matchedProduct.specifications) {
+          const specsObj = matchedProduct.specifications instanceof Map ? Object.fromEntries(matchedProduct.specifications) : matchedProduct.specifications;
+          specText = Object.entries(specsObj).slice(0, 5).map(([k, v]) => `• **${k}**: ${v}`).join("\n");
+        }
+        reply = `⭐ **Product Details for ${matchedProduct.name}**:\n\n` +
+          `• **Rating**: ⭐ **${matchedProduct.rating || 4.9} / 5**\n` +
+          `• **Category**: ${matchedProduct.category} (${matchedProduct.qualityTier} Tier)\n` +
+          `• **Price**: ₹${matchedProduct.price.toLocaleString("en-IN")}\n` +
+          `• **Stock Status**: In Stock (${matchedProduct.stock || 80} units left)\n\n` +
+          (specText ? `**Key Specifications**:\n${specText}` : matchedProduct.description);
+      } else {
+        reply = "⭐ **Product Ratings & Quality Tiers**:\n\nAll products on CartGuard AI have customer ratings between **3.6 / 5** (Economy Tier) up to **4.9 / 5** (Elite Tier). You can click on any product to view detailed ratings, specifications, and buyer reviews!";
+      }
     } else if (msgLower.includes("frequent") || msgLower.includes("popular") || msgLower.includes("best sell") || msgLower.includes("top buy") || msgLower.includes("buyed") || msgLower.includes("bought")) {
       reply = "🔥 **Top Frequently Bought Products on CartGuard AI**:\n\n1. 🎧 **Wireless Headphones (Pro & Elite)** - Features active ANC, planar drivers & 60-hr battery.\n2. 👟 **Running Shoes (Standard+ & Pro)** - Engineered mesh, carbon fiber plate & responsive cushion.\n3. 🍳 **Non-Stick Cookware Set (Premium & Elite)** - 5-ply copper core with ceramic diamond non-stick.\n4. 🧘 **Yoga Mat (Pro & Elite)** - High-density eco natural rubber & laser alignment grid.\n5. 👕 **Cotton T-Shirt (Premium & Pro)** - 100% Supima & Egyptian long-staple cotton.";
     } else if (msgLower.includes("architect") || msgLower.includes("stack") || msgLower.includes("built") || msgLower.includes("tech") || msgLower.includes("code")) {
