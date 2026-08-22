@@ -234,10 +234,31 @@ export const chat = async (req, res) => {
     const { message, sessionId } = req.body;
     const cart = await getOrCreateCart(req.user);
     await cart.populate("items.product");
+
+    let adminStats = null;
+    if (req.user.role === "admin") {
+      try {
+        const auditResp = await fetch(`${ML_URL}/api/v1/audit?limit=10`);
+        if (auditResp.ok) {
+          const auditData = await auditResp.json();
+          adminStats = {
+            totalAuditLogs: auditData.count || 0,
+            recentLogs: (auditData.logs || []).slice(0, 5).map(l => ({
+              sessionId: l.session_id,
+              riskLevel: l.risk_level,
+              riskScore: l.risk_score,
+              action: l.action?.action_type
+            }))
+          };
+        }
+      } catch (e) {}
+    }
     
     const context = {
-      sessionId: sessionId || cart.sessionId,
+      user_role: req.user.role || "user",
       user_name: req.user.name,
+      admin_stats: adminStats,
+      sessionId: sessionId || cart.sessionId,
       cart_value: cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
       cart_items: cart.items.map(i => ({
         name: i.name,

@@ -4,14 +4,32 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 export default function ChatbotWidget() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: "bot", text: "Hi! I am your CartGuard checkout assistant. Having trouble with payments or need discount info? Ask me anything!" }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pulse, setPulse] = useState(false);
   const scrollRef = useRef(null);
+
+  // Set role-appropriate initial welcome message
+  useEffect(() => {
+    if (isAdmin) {
+      setMessages([
+        {
+          sender: "bot",
+          text: `Hi ${user?.name || "Admin"}! 🚀 I am your CartGuard AI Product Copilot. Ask me anything about ML risk scores, platform telemetry, active sessions, or system architecture!`
+        }
+      ]);
+    } else {
+      setMessages([
+        {
+          sender: "bot",
+          text: `Hi ${user?.name || "there"}! 🤖 I am your CartGuard checkout assistant. Having trouble with payments, need discount info, or want to compare products? Ask me anything!`
+        }
+      ]);
+    }
+  }, [isAdmin, user?.name]);
 
   // Automatically pulse/giggle the chatbot trigger button if payment failures or errors occur!
   useEffect(() => {
@@ -43,7 +61,15 @@ export default function ChatbotWidget() {
       setMessages((prev) => [...prev, { sender: "bot", text: data.reply }]);
     } catch (err) {
       console.error(err);
-      setMessages((prev) => [...prev, { sender: "bot", text: "Checkout help is temporarily unavailable, but we suggest trying Cash on Delivery (COD) if you encounter payment blocks!" }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: isAdmin
+            ? "CartGuard Copilot service is temporarily reconnecting..."
+            : "Checkout assistance is temporarily unavailable. Please try Cash on Delivery (COD) if you encounter payment blocks!"
+        }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -53,7 +79,7 @@ export default function ChatbotWidget() {
     handleSend(phrase);
   };
 
-  if (!user || user.role !== "user") {
+  if (!user) {
     return null;
   }
 
@@ -68,10 +94,14 @@ export default function ChatbotWidget() {
             width: 56,
             height: 56,
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #6f42c1, #8B5CF6)",
+            background: isAdmin
+              ? "linear-gradient(135deg, #0F172A, #3B82F6)"
+              : "linear-gradient(135deg, #6f42c1, #8B5CF6)",
             color: "white",
             border: "none",
-            boxShadow: "0 4px 16px rgba(111,66,193,0.4)",
+            boxShadow: isAdmin
+              ? "0 4px 16px rgba(59,130,246,0.5)"
+              : "0 4px 16px rgba(111,66,193,0.4)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -81,7 +111,7 @@ export default function ChatbotWidget() {
             animation: pulse ? "agent-pulse 1.2s infinite" : "none",
           }}
         >
-          💬
+          {isAdmin ? "🚀" : "💬"}
         </button>
       )}
 
@@ -89,12 +119,12 @@ export default function ChatbotWidget() {
       {isOpen && (
         <div
           style={{
-            width: 360,
-            height: 480,
+            width: 380,
+            height: 500,
             background: "var(--panel, #ffffff)",
-            border: "1px solid var(--border, #e2e8f0)",
+            border: isAdmin ? "1px solid #3B82F6" : "1px solid var(--border, #e2e8f0)",
             borderRadius: 16,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -105,7 +135,9 @@ export default function ChatbotWidget() {
           <div
             style={{
               padding: "16px 20px",
-              background: "linear-gradient(135deg, #6f42c1, #8B5CF6)",
+              background: isAdmin
+                ? "linear-gradient(135deg, #0F172A, #1E293B)"
+                : "linear-gradient(135deg, #6f42c1, #8B5CF6)",
               color: "white",
               display: "flex",
               justifyContent: "between",
@@ -113,12 +145,24 @@ export default function ChatbotWidget() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🤖</span>
+              <span style={{ fontSize: 22 }}>{isAdmin ? "🚀" : "🤖"}</span>
               <div>
-                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>CartGuard Assistant</h4>
+                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
+                  {isAdmin ? "CartGuard Product Copilot" : "CartGuard Assistant"}
+                </h4>
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.8)" }}>Ready to help</span>
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: isAdmin ? "#38BDF8" : "#10B981",
+                      display: "inline-block"
+                    }}
+                  />
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.8)" }}>
+                    {isAdmin ? "Executive Copilot Mode" : "Ready to help"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -155,14 +199,19 @@ export default function ChatbotWidget() {
                 key={idx}
                 style={{
                   alignSelf: m.sender === "user" ? "flex-end" : "flex-start",
-                  maxWidth: "80%",
-                  background: m.sender === "user" ? "#6f42c1" : "var(--panel, #ffffff)",
+                  maxWidth: "82%",
+                  background:
+                    m.sender === "user"
+                      ? isAdmin
+                        ? "#2563EB"
+                        : "#6f42c1"
+                      : "var(--panel, #ffffff)",
                   color: m.sender === "user" ? "white" : "var(--text, #1e293b)",
                   border: m.sender === "user" ? "none" : "1px solid var(--border, #e2e8f0)",
                   padding: "10px 14px",
                   borderRadius: m.sender === "user" ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
                   fontSize: 12.5,
-                  lineHeight: 1.4,
+                  lineHeight: 1.45,
                   whiteSpace: "pre-wrap",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                 }}
@@ -182,7 +231,7 @@ export default function ChatbotWidget() {
                   color: "var(--text-muted, #64748b)",
                 }}
               >
-                Typing assistant response…
+                {isAdmin ? "Analyzing platform telemetry..." : "Typing assistant response..."}
               </div>
             )}
             <div ref={scrollRef} />
@@ -200,51 +249,103 @@ export default function ChatbotWidget() {
               scrollbarWidth: "none",
             }}
           >
-            <button
-              onClick={() => handleChipClick("Why is my card/UPI failing?")}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 20,
-                background: "var(--panel, #ffffff)",
-                border: "1px solid var(--border, #e2e8f0)",
-                fontSize: 11,
-                cursor: "pointer",
-                color: "#6f42c1",
-                whiteSpace: "nowrap",
-              }}
-            >
-              💳 Payment Failures
-            </button>
-            <button
-              onClick={() => handleChipClick("Are there any active coupons?")}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 20,
-                background: "var(--panel, #ffffff)",
-                border: "1px solid var(--border, #e2e8f0)",
-                fontSize: 11,
-                cursor: "pointer",
-                color: "#6f42c1",
-                whiteSpace: "nowrap",
-              }}
-            >
-              🎁 Coupon Codes
-            </button>
-            <button
-              onClick={() => handleChipClick("Compare specs of items in my cart")}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 20,
-                background: "var(--panel, #ffffff)",
-                border: "1px solid var(--border, #e2e8f0)",
-                fontSize: 11,
-                cursor: "pointer",
-                color: "#6f42c1",
-                whiteSpace: "nowrap",
-              }}
-            >
-              📊 Compare Products
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  onClick={() => handleChipClick("Explain CartGuard AI system architecture")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: "var(--panel, #ffffff)",
+                    border: "1px solid #3B82F6",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "#2563EB",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ⚡ Architecture
+                </button>
+                <button
+                  onClick={() => handleChipClick("How does the ML Ensemble risk model work?")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: "var(--panel, #ffffff)",
+                    border: "1px solid #3B82F6",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "#2563EB",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  🎯 ML Risk Scoring
+                </button>
+                <button
+                  onClick={() => handleChipClick("Show summary of recent audit decision logs")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: "var(--panel, #ffffff)",
+                    border: "1px solid #3B82F6",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "#2563EB",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  📊 Audit Telemetry
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleChipClick("Why is my card/UPI failing?")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: "var(--panel, #ffffff)",
+                    border: "1px solid var(--border, #e2e8f0)",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "#6f42c1",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  💳 Payment Failures
+                </button>
+                <button
+                  onClick={() => handleChipClick("Are there any active coupons?")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: "var(--panel, #ffffff)",
+                    border: "1px solid var(--border, #e2e8f0)",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "#6f42c1",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  🎁 Coupon Codes
+                </button>
+                <button
+                  onClick={() => handleChipClick("Compare specs of items in my cart")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: "var(--panel, #ffffff)",
+                    border: "1px solid var(--border, #e2e8f0)",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    color: "#6f42c1",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  📊 Compare Products
+                </button>
+              </>
+            )}
           </div>
 
           {/* Input Area */}
@@ -264,7 +365,11 @@ export default function ChatbotWidget() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask for alternative payments or specs..."
+              placeholder={
+                isAdmin
+                  ? "Ask Copilot about ML models, telemetry, architecture..."
+                  : "Ask about alternative payments or specs..."
+              }
               style={{
                 flex: 1,
                 border: "none",
@@ -278,7 +383,7 @@ export default function ChatbotWidget() {
             <button
               type="submit"
               style={{
-                background: "#6f42c1",
+                background: isAdmin ? "#2563EB" : "#6f42c1",
                 color: "white",
                 border: "none",
                 borderRadius: 8,
