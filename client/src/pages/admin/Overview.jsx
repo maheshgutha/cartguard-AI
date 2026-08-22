@@ -9,14 +9,20 @@ const Overview = () => {
   const [liveSessions, setLiveSessions] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [errorStatus, setErrorStatus] = useState(null);
+
   const load = () => {
     api.get("/admin/overview")
       .then((res) => {
         setData(res.data);
+        setErrorStatus(null);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Overview fetch error:", err);
+        if (err.response?.status === 401) {
+          setErrorStatus(401);
+        }
         setLoading(false);
       });
     api.get("/admin/live-sessions")
@@ -31,6 +37,34 @@ const Overview = () => {
   }, []);
 
   if (loading && !data) return <p style={{ padding: "20px" }}>Loading metrics...</p>;
+  if (errorStatus === 401 || (!data && errorStatus === 401)) {
+    return (
+      <div style={{ padding: "30px", background: "var(--panel)", borderRadius: "12px", border: "1px solid var(--border)", margin: "20px 0" }}>
+        <h3 style={{ color: "#ef4444", margin: "0 0 10px" }}>🔒 Admin Session Expired or Unauthorized (401)</h3>
+        <p style={{ color: "var(--text-muted)", marginBottom: "20px", fontSize: "14px" }}>
+          Your local session token has expired or is signed for a different account. Please log in with your Admin credentials to access the Dashboard.
+        </p>
+        <button
+          onClick={() => {
+            localStorage.removeItem("cg_token");
+            localStorage.removeItem("cg_user");
+            window.location.href = "/login";
+          }}
+          style={{
+            padding: "10px 20px",
+            background: "var(--accent)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "8px",
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          Log In as Admin →
+        </button>
+      </div>
+    );
+  }
   if (!data) return <p style={{ padding: "20px", color: "#ef4444" }}>Unable to load metrics. Retrying connection...</p>;
 
   const causeData = Object.entries(data.cause_distribution || {}).map(([name, value]) => ({ name, value }));

@@ -21,4 +21,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Clear stale/expired token if 401 Unauthorized occurs
+      localStorage.removeItem("cg_token");
+      localStorage.removeItem("cg_user");
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
