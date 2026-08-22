@@ -288,7 +288,7 @@ export const chat = async (req, res) => {
             replyText = parsed.message || parsed.action_message || parsed.recommendation || "I am here to assist you with your CartGuard order!";
           } catch (_) {}
         }
-        if (replyText && !replyText.includes("root_cause")) {
+        if (replyText && replyText !== "DO_NOTHING" && replyText !== "UNKNOWN" && !replyText.includes("root_cause") && !replyText.includes("reconnecting")) {
           return res.json({ reply: replyText });
         }
       }
